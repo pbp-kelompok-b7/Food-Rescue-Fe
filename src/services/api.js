@@ -1,4 +1,7 @@
-const baseUrl = (import.meta.env?.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
+const baseUrl = (import.meta.env?.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '')
+let storedCsrfToken = null
+export function setCsrfToken(token) { storedCsrfToken = token }
+
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 export class ApiError extends Error {
@@ -7,10 +10,12 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
     this.data = data
+    this.errors = data?.errors || []
   }
 }
 
 function csrfToken() {
+  if (storedCsrfToken) return storedCsrfToken
   const cookie = globalThis.document?.cookie || ''
   const value = cookie.split('; ').find((item) => item.startsWith('csrftoken='))
   return value ? decodeURIComponent(value.slice('csrftoken='.length)) : null
@@ -44,6 +49,6 @@ export async function apiRequest(path, { method = 'GET', body, headers, signal }
       throw new ApiError('Respons server bukan JSON yang valid.', response.status, null)
     }
   }
-  if (!response.ok) throw new ApiError(data?.detail || 'Permintaan gagal diproses.', response.status, data)
-  return data
+  if (!response.ok || data?.success === false) throw new ApiError(data?.message || data?.detail || 'Permintaan gagal diproses.', response.status, data)
+  return data?.success === true ? data.data : data
 }

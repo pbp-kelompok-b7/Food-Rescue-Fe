@@ -1,4 +1,4 @@
-﻿/* Core colors follow foodrescue.lib.pen; Nunito falls back until bundled. */
+/* Core colors follow foodrescue.lib.pen; local fonts load in styles/components.css. */
 :root {
   font-family: 'Nunito', 'Segoe UI', sans-serif;
   color: #1e251f;

@@ -1,9 +1,9 @@
+import EmptyState from './ui/EmptyState.jsx'
+import ErrorState from './ui/ErrorState.jsx'
+
 export default function PageState({ title, children, action, error = false }) {
+  if (error) return <ErrorState title={title}>{children}{action && <div className="state-action">{action}</div>}</ErrorState>
   return (
-    <section className={`page-state${error ? ' page-state-error' : ''}`} role={error ? 'alert' : undefined}>
-      <h2>{title}</h2>
-      <p>{children}</p>
-      {action && <div className="state-action">{action}</div>}
-    </section>
+    <EmptyState title={title} action={action}><p>{children}</p></EmptyState>
   )
 }

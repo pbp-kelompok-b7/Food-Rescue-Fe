@@ -15,7 +15,7 @@ test('API client', async (t) => {
 
   await t.test('sends session cookies and CSRF with JSON writes', async (t) => {
     const fetchMock = t.mock.method(globalThis, 'fetch', async (url, options) => {
-      assert.equal(url, '/api/listings/')
+      assert.equal(url, '/api/v1/listings/')
       assert.equal(options.credentials, 'include')
       assert.equal(options.headers.get('X-CSRFToken'), 'test-token')
       assert.equal(options.headers.get('Content-Type'), 'application/json')
@@ -28,7 +28,7 @@ test('API client', async (t) => {
 
   await t.test('GET omits CSRF and keeps query strings', async (t) => {
     t.mock.method(globalThis, 'fetch', async (url, options) => {
-      assert.equal(url, '/api/listings/?page=2')
+      assert.equal(url, '/api/v1/listings/?page=2')
       assert.equal(options.headers.has('X-CSRFToken'), false)
       return Response.json({ results: [] })
     })
@@ -72,4 +72,24 @@ test('API client', async (t) => {
     await assert.rejects(apiRequest('//example.com/'), TypeError)
     assert.equal(fetchMock.mock.callCount(), 0)
   })
+})
+
+
+test('unwraps contract response and preserves field errors', async (t) => {
+  const mock = t.mock.method(globalThis, 'fetch', async () => Response.json({ success: true, message: 'OK', data: { id: 9 } }))
+  assert.deepEqual(await apiRequest('listings/9/'), { id: 9 })
+  const errors = [{ field: 'quantity', code: 'insufficient_quantity', message: 'Stock changed.' }]
+  mock.mock.mockImplementation(async () => Response.json({ success: false, message: 'Conflict', errors }, { status: 409 }))
+  await assert.rejects(apiRequest('listings/9/'), (error) => {
+    assert.equal(error.message, 'Conflict')
+    assert.deepEqual(error.errors, errors)
+    return error.status === 409
+  })
+})
+
+test('every route key and path is unique', async () => {
+  const { pages } = await import('../routes.js')
+  assert.equal(new Set(pages.map((p) => p.key)).size, pages.length)
+  assert.equal(new Set(pages.map((p) => p.path)).size, pages.length)
+  for (const page of pages.filter((p) => p.path.startsWith('/admin'))) assert.equal(page.access, 'admin')
 })
