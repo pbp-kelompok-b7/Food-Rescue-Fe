@@ -87,9 +87,23 @@ test('unwraps contract response and preserves field errors', async (t) => {
   })
 })
 
-test('every route key and path is unique', async () => {
-  const { pages } = await import('../routes.js')
-  assert.equal(new Set(pages.map((p) => p.key)).size, pages.length)
-  assert.equal(new Set(pages.map((p) => p.path)).size, pages.length)
-  for (const page of pages.filter((p) => p.path.startsWith('/admin'))) assert.equal(page.access, 'admin')
+test('admin actions send the correct HTTP method and resource identifier', async (t) => {
+  const { adminApi } = await import('./admin.js')
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push({ url, method: options.method, body: options.body })
+    return Response.json({ success: true, data: {} })
+  })
+  await adminApi.listUsers({ search: 'A B' })
+  await adminApi.updateUser(3, { is_active: false })
+  await adminApi.schedulePickup(12, { pickup_date: '2026-10-23' })
+  await adminApi.completePickup(45, { expected_version: 2 })
+  await adminApi.deleteListing('a/b')
+  assert.deepEqual(calls, [
+    { url: '/api/v1/admin/users/?search=A+B', method: 'GET', body: undefined },
+    { url: '/api/v1/admin/users/3/', method: 'PATCH', body: JSON.stringify({ is_active: false }) },
+    { url: '/api/v1/admin/reservations/12/pickup/', method: 'POST', body: JSON.stringify({ pickup_date: '2026-10-23' }) },
+    { url: '/api/v1/admin/pickups/45/complete/', method: 'POST', body: JSON.stringify({ expected_version: 2 }) },
+    { url: '/api/v1/admin/listings/a%2Fb/', method: 'DELETE', body: undefined },
+  ])
 })

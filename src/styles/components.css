@@ -446,6 +446,25 @@ button:disabled {
   background: white;
   border-bottom: 1px solid var(--border);
 }
+:where(.fr-navbar, .fr-footer-groups) nav {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+:where(.fr-navbar, .fr-footer-groups) nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.fr-navbar nav a[aria-current='page'] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+@media (max-width: 640px) {
+  :where(.fr-navbar, .fr-footer-groups) nav { gap: 16px; }
+}
 .fr-navbar-row {
   display: flex;
   align-items: center;

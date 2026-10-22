@@ -1,4 +1,4 @@
-﻿# Food Rescue — Frontend
+# Food Rescue — Frontend
 
 Frontend React + Vite untuk redistribusi surplus pangan dan bahan organik. Satu akun dapat bertindak sebagai provider maupun receiver.
 
@@ -66,7 +66,7 @@ Proxy Vite hanya berlaku saat development. Hosting production harus menyediakan 
 
 ## Status implementasi
 
-- Tersedia: route inventory untuk landing, akun, supply/request browse-detail-create-edit, claim/offer, reservation, pickup, dan moderasi admin; lihat `src/routes.js`. Semua halaman bisnis masih placeholder.
+- Tersedia: route eksplisit untuk landing, akun, supply/request browse-detail-create-edit, claim/offer, reservation, pickup, dan moderasi admin; lihat `src/App.jsx`. Semua halaman bisnis masih placeholder.
 - Halaman modul masih placeholder dengan keterangan fitur belum tersedia. Belum ada data mock atau autentikasi palsu.
 - Backend lokal saat setup masih memiliki `urlpatterns` kosong untuk modul bisnis dan akun. Login, register, listing, reservation, dan pickup belum terintegrasi.
 - Library 27 komponen mengikuti Figma, termasuk kontrol form, feedback, navigasi, kartu resource, filter, lokasi, dan transaksi. Font Nunito dan Unbounded serta ikon Figma dibundel secara lokal.
@@ -79,10 +79,9 @@ src/
   components/    # Komponen bersama, termasuk status halaman
   layouts/       # Navigasi dan layout bersama
   pages/         # Halaman sesuai route
-  services/      # Client /api/v1, auth, resource, transaction, admin, reference, manifest dan tests
+  services/      # Client /api/v1, auth, resource, transaction, admin, reference dan tests
   auth/          # Auth provider, hook, protected/admin guard
-  routes.js      # Inventaris route halaman dan access level
-  App.jsx        # Definisi routes
+  App.jsx        # Route eksplisit dan access guard
   main.jsx       # BrowserRouter dan entry point React
   index.css      # Token warna dan styling global
 ```
@@ -120,12 +119,14 @@ Kerjakan perubahan di branch fitur, buat pull request ke `main`, dan minta minim
 Ruleset `main` seharusnya mewajibkan PR, satu approval, dan status check `Lint and build`; blokir penghapusan dan force push. Jangan aktifkan `Restrict updates` tanpa bypass yang sesuai karena dapat menghalangi merge PR. Required status check dapat dipilih setelah workflow tersedia dan pernah berjalan di GitHub.
 
 
-## Scaffold kontrak Revisi 2
+## Integrasi API Revisi 2
 
-Backend dan frontend memakai 62 operasi HTTP yang tercatat di `src/services/contracts.json` (salinan `common/contracts.json` backend). Service per modul tersedia di `src/services/`; service hanya mengirim request, belum membentuk form atau business logic.
+Backend menyediakan 62 operasi HTTP sesuai Technical Design Revisi 2, ditulis eksplisit di views.py dan urls.py setiap app. Service per modul tersedia di `src/services/`; service hanya mengirim request, belum membentuk form atau business logic.
 
 `apiRequest` mengembalikan `data` dari envelope `{success, message, data}`. Kegagalan menghasilkan `ApiError` dengan `status`, `message`, `data` mentah, dan `errors` per field. Bootstrap CSRF mengambil `data.csrf_token` sebelum login/register, dan token diambil ulang setelah login.
 
 Backend scaffold mengembalikan 501 pada seluruh operasi bisnis. Auth provider menampilkan error layanan pada route terlindungi; tidak menganggap user sudah login. Register/login UI, submit form, action approval, data fetching halaman, dan moderasi belum diimplementasikan.
 
 Setelah memperbarui checkout, sesuaikan `.env` lokal yang sudah ada ke `VITE_API_BASE_URL=/api/v1`, lalu restart Vite. Jangan menimpa file `.env` dengan `.env.example` jika memiliki konfigurasi lain.
+
+Service admin menggunakan method eksplisit seperti `adminApi.listUsers()`, `updateUser(id, body)`, dan `schedulePickup(reservationId, body)`. URL dan HTTP method ditentukan service, bukan caller. Tidak ada salinan manifest endpoint frontend; acuan integrasi adalah API contract dan endpoint backend.
