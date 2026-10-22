@@ -1,0 +1,58 @@
+﻿/* Core colors follow foodrescue.lib.pen; Nunito falls back until bundled. */
+:root {
+  font-family: 'Nunito', 'Segoe UI', sans-serif;
+  color: #1e251f;
+  background: #f6f7f7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --primary: #2c7a43;
+  --primary-hover: #256238;
+  --surface: #fff;
+  --muted: #56615a;
+  --border: #dde3de;
+  --radius: 8px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; font-size: 16px; line-height: 1.6; }
+#root { display: flex; flex-direction: column; min-height: 100svh; }
+a { color: var(--primary-hover); text-underline-offset: 4px; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 3px solid #204e2f; outline-offset: 4px; }
+.container { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
+.site-header { background: var(--surface); border-bottom: 1px solid var(--border); }
+.header-content { display: flex; gap: 32px; align-items: center; padding-block: 20px; flex-wrap: wrap; }
+.brand { font-size: 22px; font-weight: 800; text-decoration: none; color: #204e2f; }
+.brand span { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+nav { display: flex; gap: 20px; align-items: center; }
+nav a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; font-weight: 600; }
+nav a[aria-current='page']:not(.button) { text-decoration: underline; text-decoration-thickness: 2px; }
+.account-nav { margin-left: auto; }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 20px; border-radius: var(--radius); background: var(--primary); color: white; text-decoration: none; font-weight: 700; }
+.button:hover { background: var(--primary-hover); text-decoration: none; }
+.button:active { background: #204e2f; }
+.main-content { flex: 1; padding-block: 40px 64px; }
+.main-content:focus { outline: none; }
+h1, h2, p { margin-top: 0; }
+h1 { font-size: 32px; line-height: 1.25; margin-bottom: 12px; }
+h2 { font-size: 20px; line-height: 1.4; margin-bottom: 8px; }
+.page-heading { margin-bottom: 32px; }
+.page-heading p, .page-state p { color: var(--muted); max-width: 64ch; margin-bottom: 0; }
+.page-state { padding: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.page-state-error { border-color: #c0392b; }
+.state-action { margin-top: 24px; }
+.site-footer { padding-block: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+.skip-link { position: fixed; top: -100px; left: 16px; z-index: 10; padding: 12px; background: var(--surface); }
+.skip-link:focus { top: 12px; }
+@media (max-width: 640px) {
+  .container { width: calc(100% - 32px); }
+  .header-content { gap: 12px 16px; }
+  .brand { width: 100%; }
+  nav { gap: 16px; }
+  .account-nav { gap: 12px; }
+  .button { padding-inline: 14px; }
+  h1 { font-size: 28px; }
+  .main-content { padding-block: 28px 48px; }
+  .page-state { padding: 24px; }
+}
+@media (max-width: 374px) { .account-nav { margin-left: 0; } }
