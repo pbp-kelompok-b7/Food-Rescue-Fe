@@ -1,6 +1,6 @@
 # Food Rescue — Frontend
 
-Frontend React + Vite untuk redistribusi surplus pangan dan bahan organik. Satu akun dapat bertindak sebagai provider maupun receiver.
+Frontend React + TypeScript + React Router Framework Mode (SPA) di atas Vite untuk redistribusi surplus pangan dan bahan organik. Satu akun dapat bertindak sebagai provider maupun receiver.
 
 ## Setup lokal
 
@@ -62,13 +62,13 @@ Jalankan backend Django terpisah sesuai README backend, pada port 8000. Request 
 
 Semua variable `VITE_*` masuk ke bundle publik. Jangan isi password, secret key, atau token di sana. `.env` dan variasinya diabaikan Git; hanya `.env.example` yang disimpan.
 
-Proxy Vite hanya berlaku saat development. Hosting production harus menyediakan SPA fallback ke `index.html` dan meneruskan `/api` ke Django, atau memakai URL API terpisah dengan CORS, CSRF, dan cookie yang dikonfigurasi sesuai domain deployment.
+Proxy Vite berlaku pada server development dan preview lokal. Hosting production harus menyediakan SPA fallback ke `index.html` dan meneruskan `/api` ke Django, atau memakai URL API terpisah dengan CORS, CSRF, dan cookie yang dikonfigurasi sesuai domain deployment.
 
 ## Status implementasi
 
-- Tersedia: route eksplisit untuk landing, akun, supply/request browse-detail-create-edit, claim/offer, reservation, pickup, dan moderasi admin; lihat `src/App.jsx`. Semua halaman bisnis masih placeholder.
+- Tersedia: route eksplisit untuk landing, akun, supply/request browse-detail-create-edit, claim/offer, reservation, pickup, dan moderasi admin; lihat `src/routes.ts`. Semua halaman bisnis masih placeholder.
 - Halaman modul masih placeholder dengan keterangan fitur belum tersedia. Belum ada data mock atau autentikasi palsu.
-- Backend lokal saat setup masih memiliki `urlpatterns` kosong untuk modul bisnis dan akun. Login, register, listing, reservation, dan pickup belum terintegrasi.
+- Backend lokal menyediakan endpoint scaffold. Login, register, listing, reservation, dan pickup belum terintegrasi dengan halaman frontend.
 - Library 27 komponen mengikuti Figma, termasuk kontrol form, feedback, navigasi, kartu resource, filter, lokasi, dan transaksi. Font Nunito dan Unbounded serta ikon Figma dibundel secara lokal.
 - Katalog interaktif tersedia di `/components` saat development. Dokumentasi struktur dan props ada di [panduan komponen](src/components/README.md). Komponen belum berarti seluruh halaman dan integrasi backend selesai.
 
@@ -81,15 +81,16 @@ src/
   pages/         # Halaman sesuai route
   services/      # Client /api/v1, auth, resource, transaction, admin, reference dan tests
   auth/          # Auth provider, hook, protected/admin guard
-  App.jsx        # Route eksplisit dan access guard
-  main.jsx       # BrowserRouter dan entry point React
+  routes/        # Route modules, dimuat otomatis per halaman
+  routes.ts      # Konfigurasi React Router Framework Mode
+  root.tsx       # Dokumen HTML, AuthProvider, fallback dan error boundary
   index.css      # Token warna dan styling global
 ```
 
 ## Menggunakan API client
 
 ```js
-import { apiRequest, ApiError } from './services/api.js'
+import { apiRequest, ApiError } from './services/api.ts'
 
 // Contoh pemakaian ketika endpoint sudah diimplementasikan:
 const listings = await apiRequest('listings/?page=1')
@@ -108,13 +109,13 @@ npm.cmd run build
 npm.cmd run preview
 ```
 
-Preview menyajikan build pada port default 4173; proxy API development tidak tersedia di sana.
+Preview menyajikan `build/client` pada port default 4173 dan mewarisi proxy API lokal dari konfigurasi Vite. Static hosting production tetap harus menyediakan proxy API sendiri.
 
-GitHub Actions menjalankan install dari lockfile, lint, build, dan tes API client pada push, pull request, atau pemicu manual. Nama required status check: **Lint and build**.
+GitHub Actions menjalankan install dari lockfile, lint, typecheck, build, dan tes API client pada push, pull request, atau pemicu manual. Nama required status check: **Lint and build**.
 
 ## Kontribusi
 
-Kerjakan perubahan di branch fitur, buat pull request ke `main`, dan minta minimal satu approval anggota lain. Sertakan perubahan `package-lock.json` jika dependency berubah. Jalankan lint, test, dan build sebelum membuat PR.
+Kerjakan perubahan di branch fitur, buat pull request ke `main`, dan minta minimal satu approval anggota lain. Sertakan perubahan `package-lock.json` jika dependency berubah. Jalankan typecheck, lint, test, dan build sebelum membuat PR.
 
 Ruleset `main` seharusnya mewajibkan PR, satu approval, dan status check `Lint and build`; blokir penghapusan dan force push. Jangan aktifkan `Restrict updates` tanpa bypass yang sesuai karena dapat menghalangi merge PR. Required status check dapat dipilih setelah workflow tersedia dan pernah berjalan di GitHub.
 
@@ -130,3 +131,11 @@ Backend scaffold mengembalikan 501 pada seluruh operasi bisnis. Auth provider me
 Setelah memperbarui checkout, sesuaikan `.env` lokal yang sudah ada ke `VITE_API_BASE_URL=/api/v1`, lalu restart Vite. Jangan menimpa file `.env` dengan `.env.example` jika memiliki konfigurasi lain.
 
 Service admin menggunakan method eksplisit seperti `adminApi.listUsers()`, `updateUser(id, body)`, dan `schedulePickup(reservationId, body)`. URL dan HTTP method ditentukan service, bukan caller. Tidak ada salinan manifest endpoint frontend; acuan integrasi adalah API contract dan endpoint backend.
+
+## TypeScript dan Framework Mode
+
+Source aplikasi menggunakan `.ts` / `.tsx` dengan strict TypeScript. `npm run typecheck` menjalankan React Router typegen lalu `tsc`; tipe hasil generate di `.react-router/` tidak masuk Git. Tes API berjalan langsung di Node.js 24 dari file TypeScript.
+
+`react-router.config.ts` memakai `appDirectory: 'src'` dan `ssr: false`. React Router mengelola entry point, route modules, metadata, dan pemecahan bundle. Routing diatur di `src/routes.ts`; setiap halaman punya module di `src/routes/`. Layout auth dan admin melindungi kelompok route. Katalog `/components` hanya didaftarkan saat development. Tidak ada lagi `BrowserRouter`, `App.jsx`, `main.jsx`, atau `index.html` manual.
+
+Untuk deployment SPA, publish direktori **build/client**. Host harus meneruskan URL halaman ke `index.html` dan menangani proxy `/api` ke Django secara terpisah. SSR runtime tidak diaktifkan; backend bisnis tetap Django.

@@ -9,16 +9,16 @@ components/
   resources/      # SupplyCard, RequestCard, pencarian dan filter
   location/       # LocationPicker
   transactions/   # AgreementSummary, ReservationCard, PickupStatus, footer transaksi
-  index.js        # Public exports (27 komponen)
-  PageState.jsx   # Adapter halaman placeholder yang sudah ada
+  index.ts        # Public exports (27 komponen)
+  PageState.tsx   # Adapter halaman placeholder yang sudah ada
 ```
 
-Styling global komponen ada di `src/styles/components.css`, diimpor sekali melalui `main.jsx`. Ikon asli Figma disimpan di `public/assets/figma/`. `ui/Icon.jsx` dan `ui/Dialog.jsx` merupakan building block internal.
+Styling global komponen ada di `src/styles/components.css`, diimpor sekali melalui `src/root.tsx`. Ikon asli Figma disimpan di `public/assets/figma/`. `ui/Icon.tsx` dan `ui/Dialog.tsx` merupakan building block internal.
 
 ## Penggunaan
 
-```jsx
-import { Button, FormField, Input, QuantityInput } from '../components/index.js'
+```tsx
+import { Button, FormField, Input, QuantityInput } from '../components/index.ts'
 
 <FormField label="Nama pangan" error={errors.title} required>
   <Input name="title" value={title} onChange={event => setTitle(event.target.value)} />
@@ -65,6 +65,6 @@ Komponen yang menggunakan `Link`/`NavLink` harus berada di dalam React Router. `
 
 ## Katalog development
 
-Jalankan `npm run dev`, lalu buka `/components`. Route ini hanya tersedia dalam mode development dan dimuat secara lazy. Data contoh di `src/pages/ComponentCatalogPage.jsx` tidak melakukan transaksi atau pencarian lokasi aktif. Halaman modul tetap terpisah dari katalog.
+Jalankan `npm run dev`, lalu buka `/components`. Route ini hanya tersedia dalam mode development dan dimuat secara lazy. Data contoh di `src/pages/ComponentCatalogPage.tsx` tidak melakukan transaksi atau pencarian lokasi aktif. Halaman modul tetap terpisah dari katalog.
 
 Katalog mencakup kontrol, feedback, kartu, filter sheet, keyboard tabs, konfirmasi modal, pemilihan hasil lokasi, navbar guest/login, dan ringkasan transaksi. Komponen menerima state dan callback; keberhasilan tampilan katalog bukan bukti integrasi backend.
