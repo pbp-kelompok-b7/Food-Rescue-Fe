@@ -4,7 +4,7 @@ export default function Textarea({ className = '', rows = 4, ...props }: React.C
     <textarea
       {...props}
       rows={rows}
-      className={`fr-control fr-textarea ${className}`}
+      className={`fr-control h-30 min-h-30 resize-y py-3 ${className}`}
     />
   )
 }

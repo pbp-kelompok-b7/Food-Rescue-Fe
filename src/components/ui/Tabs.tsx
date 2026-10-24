@@ -20,13 +20,14 @@ export default function Tabs({ items, value, onChange, label = 'Tab konten' }: {
     document.getElementById(`${id}-tab-${target.value}`)?.focus()
   }
   return (
-    <div className="fr-tabs">
-      <div className="fr-tab-list" role="tablist" aria-label={label}>
+    <div className="[&_[role=tabpanel]]:pt-6">
+      <div className="flex gap-2 overflow-x-auto border-b border-border" role="tablist" aria-label={label}>
         {items.map((item) => (
           <button
             key={item.value}
             id={`${id}-tab-${item.value}`}
             type="button"
+            className="min-h-11 shrink-0 border-b-3 border-transparent bg-transparent px-4 py-2.5 text-sm font-semibold text-muted aria-selected:border-primary aria-selected:text-primary-hover disabled:opacity-50 focus-visible:-outline-offset-4"
             role="tab"
             aria-selected={value === item.value}
             aria-controls={`${id}-panel-${item.value}`}

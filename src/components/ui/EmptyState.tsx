@@ -8,7 +8,7 @@ export default function EmptyState({
   variant = 'default',
 }: { title?: string; children?: React.ReactNode; action?: React.ReactNode; variant?: 'default' | 'dashboard' }) {
   return (
-    <section className="fr-empty">
+    <section className="flex flex-col items-start gap-4 rounded-md border border-border bg-surface p-6 shadow-card [&_h2]:m-0 [&_h2]:font-semibold [&_p]:m-0">
       <Icon name={variant === 'dashboard' ? 'dashboard' : 'empty'} />
       <h2>{title}</h2>
       {children && <div>{children}</div>}

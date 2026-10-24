@@ -33,7 +33,7 @@ const files = {
 export default function Icon({ name, className = '' }: { name: keyof typeof files; className?: string }) {
   if (!files[name]) return null
   return (
-    <span className={`fr-icon ${className}`} aria-hidden="true">
+    <span className={`inline-flex shrink-0 items-center justify-center leading-none [&_img]:block [&_img]:max-w-none ${className}`} aria-hidden="true">
       <img src={`/assets/figma/${files[name]}.svg`} alt="" />
     </span>
   )

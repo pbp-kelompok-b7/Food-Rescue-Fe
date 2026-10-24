@@ -21,34 +21,34 @@ export default function SupplyCard({
   const sell = mode === 'SELL'
   return (
     <article
-      className={`fr-supply-card ${organic ? 'fr-supply-card--organic' : ''}`}
+      className="min-w-0 overflow-hidden rounded-md border border-border bg-surface shadow-card wrap-anywhere [&_h2]:m-0 [&_h2]:text-xl [&_h2]:leading-7 [&_h2]:font-semibold"
     >
-      <div className="fr-resource-band">
+      <div className={`flex items-center gap-2 px-5 text-sm leading-[1.333] font-semibold ${organic ? 'min-h-13 bg-organic py-2.5 text-on-organic' : 'min-h-20 bg-brand py-5 text-on-brand'}`}>
         <Icon name={organic ? 'organicLarge' : 'packageLarge'} />
         <span>{organic ? 'Bahan organik' : 'Siap konsumsi'}</span>
       </div>
       {photoUrl && (
         <img
-          className="fr-resource-photo"
+          className="block h-40 w-full object-cover"
           src={photoUrl}
           alt={photoAlt}
           loading="lazy"
         />
       )}
-      <div className="fr-supply-body">
+      <div className="flex flex-col items-start gap-3 p-5 [&_p]:m-0 [&>.fr-button]:mt-2 [&>.fr-button]:h-11 [&>.fr-button]:w-full [&>.fr-button]:py-0">
         <div
-          className={`fr-resource-mode ${sell ? 'fr-resource-mode--sell' : ''}`}
+          className={`inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs leading-4 font-semibold ${sell ? 'bg-sell text-white' : 'bg-primary-container text-on-primary-container'}`}
         >
           <Icon name={sell ? 'sell' : 'donate'} />
           {sell ? 'SELL' : 'Donasi'}
         </div>
         <h2>{title}</h2>
-        <p className="fr-resource-quantity">
+        <p className="text-lg font-semibold">
           {quantity} {unit} tersedia
         </p>
-        <div className="fr-resource-meta">
+        <div className="flex w-full flex-col gap-2.5 border-t border-border pt-3 [&_p]:flex [&_p]:items-start [&_p]:gap-2 [&_p]:text-sm [&_p]:leading-5">
           {deadline && (
-            <p>
+            <p className="text-ink">
               <Icon name="clock" />
               <span>
                 {organic ? 'Batas tersedia' : 'Batas konsumsi'}: {deadline}
@@ -56,21 +56,21 @@ export default function SupplyCard({
             </p>
           )}
           {area && (
-            <p>
+            <p className="text-muted">
               <Icon name="pin" />
               <span>{area}</span>
             </p>
           )}
         </div>
         {intendedUse && (
-          <span className="fr-resource-use">
+          <span className="inline-flex items-center gap-1 self-start rounded-sm bg-neutral-container px-2 py-1 text-xs leading-4 font-semibold text-notice">
             <Icon name={organic ? 'compost' : 'food'} />
             {intendedUse}
           </span>
         )}
-        {condition && <p className="fr-hint">{condition}</p>}
+        {condition && <p className="m-0 text-sm leading-5 text-notice">{condition}</p>}
         {to && (
-          <Link to={to} className="fr-button fr-button--secondary">
+          <Link to={to} className="fr-button border border-outline bg-surface text-ink shadow-none hover:not-disabled:bg-organic active:not-disabled:bg-primary-container active:not-disabled:opacity-100">
             Lihat detail →<span className="sr-only"> {title}</span>
           </Link>
         )}

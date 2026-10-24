@@ -33,7 +33,7 @@ export default function Dialog({
         onClose?.()
       }}
     >
-      <h2 id={titleId}>{title}</h2>
+      <h2 id={titleId} className="mb-4 leading-normal">{title}</h2>
       {children}
     </dialog>
   )

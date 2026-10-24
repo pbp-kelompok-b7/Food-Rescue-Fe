@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError } from 'react-router'
 import AuthProvider from './auth/AuthProvider.tsx'
 import './index.css'
-import './styles/components.css'
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -28,7 +27,7 @@ export default function Root() {
 }
 
 export function HydrateFallback() {
-  return <main className="container main-content"><p role="status">Memuat Food Rescue...</p></main>
+  return <main className="mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16"><p role="status">Memuat Food Rescue...</p></main>
 }
 
 export function ErrorBoundary() {
@@ -37,7 +36,7 @@ export function ErrorBoundary() {
     ? 'Halaman tidak ditemukan.'
     : 'Halaman gagal dimuat. Silakan coba lagi.'
   return (
-    <main className="container main-content">
+    <main className="mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16">
       <h1>{message}</h1>
       <a className="fr-button" href="/">Kembali ke beranda</a>
     </main>

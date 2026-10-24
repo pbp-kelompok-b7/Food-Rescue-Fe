@@ -1,6 +1,6 @@
 # Food Rescue — Frontend
 
-Frontend React + TypeScript + React Router Framework Mode (SPA) di atas Vite untuk redistribusi surplus pangan dan bahan organik. Satu akun dapat bertindak sebagai provider maupun receiver.
+Frontend React + TypeScript + React Router Framework Mode (SPA) dengan Tailwind CSS di atas Vite untuk redistribusi surplus pangan dan bahan organik. Satu akun dapat bertindak sebagai provider maupun receiver.
 
 ## Setup lokal
 
@@ -84,8 +84,14 @@ src/
   routes/        # Halaman per modul: auth, supply, requests, reservations, pickups, admin
   routes.ts      # Konfigurasi React Router Framework Mode
   root.tsx       # Dokumen HTML, AuthProvider, fallback dan error boundary
-  index.css      # Token warna dan styling global
+  index.css      # Tailwind theme, font lokal, base styles dan shared element styles
 ```
+
+## Styling
+
+Tailwind CSS v4 terhubung melalui `@tailwindcss/vite`. Token design system berada di blok `@theme` pada `src/index.css`, mengikuti palet, font, radius, dan shadow dari library komponen yang sudah ada. Gunakan token semantik seperti `bg-primary`, `text-muted`, `border-border`, `font-brand`, `rounded-md`, dan `shadow-card`.
+
+Layout dan state komponen memakai utility classes langsung di TSX. Tiga style dasar bersama (`fr-button`, `fr-control`, `fr-dialog`) memakai `@apply` di layer components agar konsisten dan tetap dapat dioverride utility. Breakpoint `nav:` (761px) mempertahankan perilaku navbar dan katalog; `sm:` mengikuti 640px. Font Nunito/Unbounded dan ikon Figma tetap disajikan lokal.
 
 ## Menggunakan API client
 

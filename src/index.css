@@ -1,37 +1,107 @@
-﻿/* Core colors follow foodrescue.lib.pen; local fonts load in styles/components.css. */
-:root {
-  font-family: 'Nunito', 'Segoe UI', sans-serif;
-  color: #1e251f;
-  background: #f6f7f7;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  --primary: #2c7a43;
-  --primary-hover: #256238;
-  --surface: #fff;
-  --muted: #56615a;
-  --border: #dde3de;
-  --radius: 8px;
+﻿@import 'tailwindcss';
+
+/* Food Rescue Figma: IHKy4C88HVCrLH0B3wCbsU / Components (8:216). */
+@theme {
+  --font-sans: 'Nunito', 'Segoe UI', sans-serif;
+  --font-brand: 'Unbounded', 'Nunito', sans-serif;
+
+  --color-primary: #2c7a43;
+  --color-primary-hover: #256238;
+  --color-primary-container: #dcf1df;
+  --color-on-primary-container: #204e2f;
+  --color-surface: #ffffff;
+  --color-canvas: #f6f7f7;
+  --color-ink: #1e251f;
+  --color-muted: #56615a;
+  --color-border: #dde3de;
+  --color-outline: #738077;
+  --color-neutral-container: #e6ebe7;
+  --color-surface-variant: #eef1ef;
+  --color-brand: #f56636;
+  --color-brand-hover: #eb6234;
+  --color-brand-active: #e15e32;
+  --color-on-brand: #241b17;
+  --color-danger: #c0392b;
+  --color-danger-hover: #b13428;
+  --color-danger-active: #a13024;
+  --color-danger-container: #fbe9e7;
+  --color-on-danger-container: #922b21;
+  --color-warning-container: #ffe5d9;
+  --color-on-warning-container: #7b341a;
+  --color-notice: #445248;
+  --color-organic: #f0f9f1;
+  --color-organic-container: #e9eeeb;
+  --color-on-organic: #34493c;
+  --color-sell: #29332c;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 16px;
+  --shadow-card: 0 4px 12px #0000000a;
+  --shadow-button: 0 1px 3px #00000008, 0 4px 12px #0000000a;
+  --breakpoint-nav: 47.5625rem;
 }
-* { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; font-size: 16px; line-height: 1.6; }
-#root { display: flex; flex-direction: column; min-height: 100svh; }
-a { color: var(--primary-hover); text-underline-offset: 4px; }
-a:hover { text-decoration: underline; }
-:focus-visible { outline: 3px solid #204e2f; outline-offset: 4px; }
-.container { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
-.main-content { flex: 1; padding-block: 40px 64px; }
-.main-content:focus { outline: none; }
-h1, h2, p { margin-top: 0; }
-h1 { font-size: 32px; line-height: 1.25; margin-bottom: 12px; }
-h2 { font-size: 20px; line-height: 1.4; margin-bottom: 8px; }
-.page-heading { margin-bottom: 32px; }
-.page-heading p { color: var(--muted); max-width: 64ch; margin-bottom: 0; }
-.state-action { margin-top: 24px; }
-.skip-link { position: fixed; top: -100px; left: 16px; z-index: 10; padding: 12px; background: var(--surface); }
-.skip-link:focus { top: 12px; }
-@media (max-width: 640px) {
-  .container { width: calc(100% - 32px); }
-  h1 { font-size: 28px; }
-  .main-content { padding-block: 28px 48px; }
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('/assets/fonts/Nunito.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Unbounded';
+  src: url('/assets/fonts/Unbounded.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  body { @apply m-0 min-w-80 text-base leading-normal; }
+  #root { @apply flex min-h-svh flex-col; }
+  a { @apply text-primary-hover underline-offset-4 hover:underline; }
+  :focus-visible { @apply outline-3 outline-on-primary-container outline-offset-4; }
+  h1 { @apply mb-3 text-[28px] leading-tight font-bold sm:text-[32px]; }
+  h2 { @apply mb-2 text-xl leading-[1.4] font-bold; }
+  p { @apply mb-4; }
+  button { @apply cursor-pointer disabled:cursor-not-allowed; }
+  button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+}
+
+/* Shared element styles also work on links; utilities can override them. */
+@layer components {
+  .fr-button {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md
+      border-0 bg-primary p-3 text-center text-sm
+      leading-5 font-semibold text-white no-underline shadow-button
+      hover:not-disabled:bg-primary-hover hover:no-underline
+      active:not-disabled:bg-primary active:not-disabled:opacity-88
+      disabled:bg-neutral-container disabled:text-notice disabled:shadow-none;
+  }
+
+  .fr-button[aria-busy='true'] { @apply bg-primary text-white opacity-100 shadow-button; }
+
+  .fr-control {
+    @apply h-11 w-full min-w-0 rounded-md border border-outline bg-surface
+      px-3 py-0 leading-6 text-ink placeholder:text-muted placeholder:opacity-100
+      focus:outline-2 focus:outline-on-primary-container focus:-outline-offset-2
+      aria-invalid:border-2 aria-invalid:border-danger
+      disabled:cursor-not-allowed disabled:bg-surface-variant disabled:text-muted;
+  }
+
+  .fr-dialog {
+    @apply m-auto max-h-[calc(100svh_-_32px)] w-[min(390px,calc(100%_-_32px))]
+      overflow-y-auto rounded-xl border border-border bg-surface p-6 text-ink
+      backdrop:bg-ink/40;
+  }
 }

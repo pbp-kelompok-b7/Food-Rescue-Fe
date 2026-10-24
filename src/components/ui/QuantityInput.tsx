@@ -27,12 +27,12 @@ export default function QuantityInput({
       .filter(Boolean)
       .join(' ') || undefined
   return (
-    <div className="fr-field">
+    <div className="flex min-w-0 flex-col gap-2 [&>label]:text-sm [&>label]:leading-5 [&>label]:font-semibold">
       <label htmlFor={id}>
         {label}
         {unit && ` (${unit})`}
       </label>
-      <div className="fr-stepper">
+      <div className="flex items-center gap-2 [&>button]:h-11 [&>button]:basis-11 [&>button]:shrink-0 [&>button]:p-0 [&_input]:text-center">
         <Button
           variant="secondary"
           aria-label="Kurangi jumlah"
@@ -74,7 +74,7 @@ export default function QuantityInput({
         </Button>
       </div>
       {hint && (
-        <p className="fr-hint" id={`${id}-hint`}>
+        <p className="m-0 text-sm leading-5 text-muted" id={`${id}-hint`}>
           {hint}
         </p>
       )}

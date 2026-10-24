@@ -12,12 +12,12 @@ export default function AgreementSummary({
   condition,
 }: { reference?: string; title: string; provider: string; receiver: string; quantity: number; unit: string; sharingLabel?: string; deadlineLabel?: string; deadline?: string; location?: string; condition?: string }) {
   return (
-    <section className="fr-agreement">
-      <div>
-        {reference && <p className="fr-hint">{reference}</p>}
-        <h2>{title}</h2>
+    <section className="flex min-w-0 flex-col gap-4 rounded-md border border-border bg-surface p-4 leading-normal wrap-anywhere nav:p-6 [&_dl]:m-0 [&_dl]:flex [&_dl]:flex-col [&_dl]:gap-4 [&_dt]:mb-1 [&_dt]:text-sm [&_dt]:text-muted [&_dd]:m-0">
+      <div className="flex flex-col gap-1">
+        {reference && <p className="m-0 text-sm leading-[1.5] text-muted">{reference}</p>}
+        <h2 className="m-0 text-xl leading-normal">{title}</h2>
       </div>
-      <div className="fr-participants">
+      <div className="grid grid-cols-2 gap-4">
         <dl>
           <div>
             <dt>Provider</dt>

@@ -1,6 +1,6 @@
 # Food Rescue components
 
-Komponen React + CSS berdasarkan library Figma Food Rescue. Satu file untuk setiap komponen; state bisnis, request API, permission, dan formatting tanggal/harga tetap milik page atau service.
+Komponen React + Tailwind CSS berdasarkan library Figma Food Rescue. Satu file untuk setiap komponen; state bisnis, request API, permission, dan formatting tanggal/harga tetap milik page atau service.
 
 ```text
 components/
@@ -13,9 +13,13 @@ components/
   PageState.tsx   # Adapter halaman placeholder yang sudah ada
 ```
 
-Styling global komponen ada di `src/styles/components.css`, diimpor sekali melalui `src/root.tsx`. Ikon asli Figma disimpan di `public/assets/figma/`. `ui/Icon.tsx` dan `ui/Dialog.tsx` merupakan building block internal.
+Token Tailwind dan base styles ada di `src/index.css`, diimpor sekali melalui `src/root.tsx`. Layout, variasi, dan state memakai utility classes di setiap komponen. `fr-button`, `fr-control`, dan `fr-dialog` adalah style dasar bersama menggunakan `@apply`; props `className` dapat menambahkan utility. Ikon asli Figma disimpan di `public/assets/figma/`. `ui/Icon.tsx` dan `ui/Dialog.tsx` merupakan building block internal.
 
 ## Penggunaan
+
+Acuan visual: [Components di Figma Food Rescue](https://www.figma.com/design/IHKy4C88HVCrLH0B3wCbsU?node-id=8-216). Token dan state diperiksa langsung melalui konektor Figma. Sumber utama: Button `9:201`, FormField `9:217`, controls `9:269`, resource cards `11:398`, feedback `18:462`, navigation `18:585`, footer/utilities `18:719`, dan AgreementSummary `77:588`.
+
+`rounded-md`/`rounded-lg` = 8px; `rounded-xl` = 16px untuk dialog. `shadow-card` mengikuti Shadow 4; `shadow-button` mengikuti Shadow 3. Logo navbar mobile memakai Nunito Bold 18px; desktop dan footer memakai Unbounded SemiBold. Button primary memakai opacity 88% saat pressed; secondary memakai organic saat hover dan primary-container saat pressed. Lebar komponen mengikuti container pemanggil agar tetap responsif.
 
 ```tsx
 import { Button, FormField, Input, QuantityInput } from '../components/index.ts'
@@ -35,7 +39,7 @@ import { Button, FormField, Input, QuantityInput } from '../components/index.ts'
 | Komponen | Props |
 | --- | --- |
 | `Button` | `variant`: primary/secondary/ghost/destructive/brand; `loading`, `disabled`, props button native. Default `type="button"`. |
-| `Input`, `Textarea` | Props input/textarea native, termasuk `ref`, `name`, `value`, `onChange`. |
+| `Input`, `Textarea` | Props input/textarea native, termasuk `ref`, `name`, `value`, `onChange`. `Input` juga menerima slot `trailing` untuk ikon atau tombol di ujung kontrol. |
 | `Select` | Props select native; `options: {value, label, disabled?}[]`, `placeholder`. |
 | `FormField` | `label`, `hint`, `error`, `required`, satu child kontrol. |
 | `Checkbox` | `label`, props checkbox native termasuk `checked`, `onChange`. |

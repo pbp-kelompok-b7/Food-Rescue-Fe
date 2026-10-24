@@ -21,7 +21,7 @@ export default function LocationPicker({
 }: { query: string; onQueryChange: (value: string) => void; onSearch?: (query: string) => void; results?: LocationResult[]; selectedId?: string | number; onSelect: (result: LocationResult) => void; loading?: boolean; error?: string; searched?: boolean; attribution?: string }) {
   const id = useId()
   return (
-    <section className="fr-location-picker" aria-label="Pemilihan lokasi">
+    <section className="flex flex-col gap-4 rounded-md border border-border bg-surface p-5 [&_form]:flex [&_form]:flex-col [&_form]:items-start [&_form]:gap-3 [&_form>div]:w-full" aria-label="Pemilihan lokasi">
       <form
         onSubmit={(event) => {
           event.preventDefault()
@@ -29,20 +29,29 @@ export default function LocationPicker({
         }}
       >
         <FormField
+          className="[&>p]:max-w-50"
           label="Cari alamat / lokasi"
           hint="Pilih hasil di bawah untuk mengonfirmasi lokasi."
         >
           <Input
+            className="text-muted focus:text-ink"
             type="search"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             aria-controls={`${id}-results`}
+            trailing={
+              <button
+                type="submit"
+                className="flex size-11 items-center justify-center rounded-r-md text-primary"
+                aria-label="Cari lokasi"
+                aria-busy={loading || undefined}
+                disabled={loading}
+              >
+                <Icon name={loading ? 'loading' : 'location'} className={loading ? 'animate-spin motion-reduce:animate-none' : ''} />
+              </button>
+            }
           />
         </FormField>
-        <Button type="submit" variant="secondary" loading={loading}>
-          <Icon name="location" />
-          Cari lokasi
-        </Button>
       </form>
       {error && (
         <Alert tone="danger" title="Pencarian lokasi tidak tersedia">
@@ -51,21 +60,22 @@ export default function LocationPicker({
       )}
       <div
         id={`${id}-results`}
-        className="fr-location-results"
+        className="flex flex-col gap-3"
         aria-busy={loading}
       >
         {results.map((result) => (
-          <div key={result.id} className="fr-location-result">
+          <div key={result.id} className="flex items-center gap-4 rounded-md border border-border p-4 [&>div]:min-w-0 [&>div]:flex-1 [&>div]:wrap-anywhere [&>div]:flex [&>div]:flex-col [&>div]:gap-1">
             <div>
               <strong>{result.label}</strong>
               {result.latitude != null && result.longitude != null && (
-                <p className="fr-hint">
+                <p className="m-0 text-sm leading-[1.5] text-muted">
                   Koordinat: {result.latitude}, {result.longitude}
                 </p>
               )}
             </div>
             <Button
               variant="secondary"
+              className="h-11 min-w-19 py-0"
               aria-pressed={selectedId === result.id}
               onClick={() => onSelect(result)}
             >
@@ -75,11 +85,11 @@ export default function LocationPicker({
         ))}
       </div>
       {searched && !loading && !error && results.length === 0 && (
-        <p role="status" className="fr-hint">
+        <p role="status" className="m-0 text-sm leading-[1.5] text-muted">
           Lokasi tidak ditemukan. Coba alamat lain.
         </p>
       )}
-      {attribution && <p className="fr-attribution">{attribution}</p>}
+      {attribution && <p className="m-0 text-xs text-muted">{attribution}</p>}
     </section>
   )
 }

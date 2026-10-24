@@ -22,8 +22,8 @@ export default function ConfirmDialog({
       onClose={loading ? undefined : onCancel}
       initialFocusRef={cancelRef}
     >
-      <div className="fr-dialog-description">{children}</div>
-      <div className="fr-dialog-actions">
+      <div className="text-muted">{children}</div>
+      <div className="mt-4 flex gap-3 [&>button]:h-11 [&>button]:flex-1 [&>button]:py-0">
         <Button
           ref={cancelRef}
           variant="secondary"

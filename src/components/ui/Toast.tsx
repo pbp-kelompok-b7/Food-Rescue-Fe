@@ -15,7 +15,7 @@ export default function Toast({
     return () => window.clearTimeout(timer)
   }, [duration, onDismiss])
   return (
-    <div className="fr-toast" role={tone === 'danger' ? 'alert' : 'status'}>
+    <div className="flex items-center gap-3 rounded-md border border-border bg-surface p-4 text-sm leading-5 font-semibold [&>div]:min-w-0 [&>div]:flex-1" role={tone === 'danger' ? 'alert' : 'status'}>
       <Icon name={tone === 'success' ? 'confirmation' : tone} />
       <div>{children}</div>
       {onDismiss && (

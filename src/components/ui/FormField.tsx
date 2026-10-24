@@ -18,7 +18,7 @@ export default function FormField({
       .filter(Boolean)
       .join(' ') || undefined
   return (
-    <div className={`fr-field ${className}`}>
+    <div className={`flex min-w-0 flex-col gap-2 [&>label]:text-sm [&>label]:leading-5 [&>label]:font-semibold ${className}`}>
       <label htmlFor={id}>
         {label}
         {required && ' (wajib)'}
@@ -30,7 +30,7 @@ export default function FormField({
         'aria-describedby': describedBy,
       })}
       {(error || hint) && (
-        <p id={messageId} className={error ? 'fr-field-error' : 'fr-hint'}>
+        <p id={messageId} className={error ? 'm-0 text-sm leading-5 text-danger' : 'm-0 text-sm leading-5 text-muted'}>
           {error || hint}
         </p>
       )}

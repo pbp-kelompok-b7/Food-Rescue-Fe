@@ -84,21 +84,22 @@ export default function ComponentCatalogPage() {
   const [checked, setChecked] = useState(true)
 
   return (
-    <div className="fr-catalog">
-      <div className="page-heading">
+    <div className="flex flex-col gap-10">
+      <div className="mb-8 [&_p]:mb-0 [&_p]:max-w-[64ch] [&_p]:text-muted">
         <h1>Komponen Food Rescue</h1>
         <p>
           Katalog development · Semua data adalah contoh, tanpa transaksi atau
           pencarian lokasi aktif.
         </p>
       </div>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Button</h2>
-        <div className="fr-catalog-row">
+        <div className="flex flex-wrap items-start gap-4">
           {(['primary', 'secondary', 'ghost', 'destructive', 'brand'] as const).map(
             (variant) => (
               <Button
                 key={variant}
+                className="w-52.5"
                 variant={variant}
                 onClick={() => setMessage(`Tombol ${variant} diklik.`)}
               >
@@ -106,18 +107,18 @@ export default function ComponentCatalogPage() {
               </Button>
             ),
           )}
-          <Button disabled>Tidak tersedia</Button>
-          <Button loading>Menyimpan…</Button>
+          <Button className="w-52.5" disabled>Tidak tersedia</Button>
+          <Button className="w-52.5" loading>Menyimpan…</Button>
         </div>
-        <p role="status" className="fr-catalog-message">
+        <p role="status" className="text-sm text-muted">
           {message}
         </p>
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Form controls</h2>
-        <div className="fr-catalog-pair">
+        <div className="grid grid-cols-1 items-start gap-6 nav:grid-cols-2">
           <form
-            className="fr-catalog-form"
+            className="flex w-full max-w-82 flex-col gap-5"
             onSubmit={(event) => {
               event.preventDefault()
               setMessage('Form contoh dikirim.')
@@ -155,7 +156,7 @@ export default function ComponentCatalogPage() {
             />
             <Button type="submit">Kirim contoh</Button>
           </form>
-          <div className="fr-catalog-form">
+          <div className="flex w-full max-w-82 flex-col gap-5">
             <FormField label="Nama pangan" error="Nama pangan wajib diisi.">
               <Input placeholder="Masukkan nama pangan" />
             </FormField>
@@ -168,9 +169,9 @@ export default function ComponentCatalogPage() {
           </div>
         </div>
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Badge</h2>
-        <div className="fr-catalog-row">
+        <div className="flex flex-wrap items-start gap-4">
           {[
             'AVAILABLE',
             'RESERVED',
@@ -187,9 +188,9 @@ export default function ComponentCatalogPage() {
           ))}
         </div>
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Feedback</h2>
-        <div className="fr-catalog-pair">
+        <div className="grid grid-cols-1 items-start gap-6 nav:grid-cols-2">
           <Alert title="Periksa kondisi sebelum digunakan">
             Kondisi dan kesesuaian dijelaskan penyedia, bukan diverifikasi
             platform.
@@ -227,7 +228,7 @@ export default function ComponentCatalogPage() {
           </EmptyState>
           <Skeleton />
         </div>
-        <div className="fr-catalog-row">
+        <div className="flex flex-wrap items-start gap-4">
           <Button onClick={() => setToast(true)}>Tampilkan toast</Button>
           <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
             Buka konfirmasi
@@ -253,9 +254,9 @@ export default function ComponentCatalogPage() {
           katalog.
         </ConfirmDialog>
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Resource cards</h2>
-        <div className="fr-catalog-grid">
+        <div className="grid grid-cols-1 items-start gap-6 nav:grid-cols-2 xl:grid-cols-[repeat(3,296px)]">
           <SupplyCard
             title="Nasi kotak"
             quantity={12}
@@ -282,6 +283,7 @@ export default function ComponentCatalogPage() {
             area="Beji, Depok"
             intendedUse="Pengomposan"
             condition="Basah, tanpa campuran"
+            action={<Button variant="secondary" onClick={() => setMessage('Detail bahan organik contoh dipilih.')}>Lihat detail →</Button>}
           />
           <SupplyCard
             title="Roti kemasan surplus"
@@ -292,9 +294,10 @@ export default function ComponentCatalogPage() {
             area="Coblong, Kota Bandung"
             intendedUse="Konsumsi manusia"
             condition="Belum dikonsumsi"
+            action={<Button variant="secondary" onClick={() => setMessage('Detail supply jual contoh dipilih.')}>Lihat detail →</Button>}
           />
         </div>
-        <div className="fr-catalog-pair">
+        <div className="grid grid-cols-1 items-start gap-6 nav:grid-cols-[repeat(2,minmax(0,400px))]">
           <RequestCard
             title="Pangan untuk dapur warga"
             remaining={12}
@@ -324,14 +327,14 @@ export default function ComponentCatalogPage() {
           />
         </div>
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Search, filters &amp; tabs</h2>
         <SearchBar
           value={query}
           onChange={setQuery}
           onSearch={(value) => setMessage(`Pencarian contoh: ${value}`)}
         />
-        <div className="fr-catalog-form">
+        <div className="flex w-full max-w-82 flex-col gap-5">
           <ResourceFilters
             fields={filterFields}
             value={filters}
@@ -378,7 +381,7 @@ export default function ComponentCatalogPage() {
           ]}
         />
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>LocationPicker</h2>
         <LocationPicker
           query={locationQuery}
@@ -398,9 +401,9 @@ export default function ComponentCatalogPage() {
           <p role="status">Lokasi contoh terpilih: {selected.label}</p>
         )}
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Transaction components</h2>
-        <div className="fr-catalog-pair">
+        <div className="grid grid-cols-1 items-start gap-6 nav:grid-cols-2">
           <AgreementSummary {...agreement} />
           <div>
             <ReservationCard
@@ -424,7 +427,7 @@ export default function ComponentCatalogPage() {
           </div>
         </div>
       </section>
-      <section className="fr-catalog-section">
+      <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Navigation · login variant</h2>
         <Navbar
           user={{ name: 'Akun saya' }}

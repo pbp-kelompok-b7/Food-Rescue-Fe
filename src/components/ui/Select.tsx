@@ -7,7 +7,7 @@ export default function Select({
   ...props
 }: React.ComponentPropsWithRef<'select'> & { options?: {value: string; label: string; disabled?: boolean}[]; placeholder?: string }) {
   return (
-    <select {...props} className={`fr-control fr-select ${className}`}>
+    <select {...props} className={`fr-control appearance-none pr-10 text-muted bg-[url('/assets/figma/9-269-select-chevron.svg')] bg-position-[right_12px_center] bg-no-repeat ${className}`}>
       {placeholder && <option value="">{placeholder}</option>}
       {options.map((option) => (
         <option

@@ -13,7 +13,7 @@ export default function SearchBar({
   const id = useId()
   return (
     <form
-      className="fr-search"
+      className="flex gap-3"
       role="search"
       onSubmit={(event) => {
         event.preventDefault()
