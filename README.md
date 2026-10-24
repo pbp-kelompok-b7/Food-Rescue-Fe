@@ -81,7 +81,7 @@ src/
   pages/         # Halaman sesuai route
   services/      # Client /api/v1, auth, resource, transaction, admin, reference dan tests
   auth/          # Auth provider, hook, protected/admin guard
-  routes/        # Route modules, dimuat otomatis per halaman
+  routes/        # Halaman per modul: auth, supply, requests, reservations, pickups, admin
   routes.ts      # Konfigurasi React Router Framework Mode
   root.tsx       # Dokumen HTML, AuthProvider, fallback dan error boundary
   index.css      # Token warna dan styling global
@@ -136,6 +136,6 @@ Service admin menggunakan method eksplisit seperti `adminApi.listUsers()`, `upda
 
 Source aplikasi menggunakan `.ts` / `.tsx` dengan strict TypeScript. `npm run typecheck` menjalankan React Router typegen lalu `tsc`; tipe hasil generate di `.react-router/` tidak masuk Git. Tes API berjalan langsung di Node.js 24 dari file TypeScript.
 
-`react-router.config.ts` memakai `appDirectory: 'src'` dan `ssr: false`. React Router mengelola entry point, route modules, metadata, dan pemecahan bundle. Routing diatur di `src/routes.ts`; setiap halaman punya module di `src/routes/`. Layout auth dan admin melindungi kelompok route. Katalog `/components` hanya didaftarkan saat development. Tidak ada lagi `BrowserRouter`, `App.jsx`, `main.jsx`, atau `index.html` manual.
+`react-router.config.ts` memakai `appDirectory: 'src'` dan `ssr: false`. React Router mengelola entry point, route modules, metadata, dan pemecahan bundle. Routing diatur di `src/routes.ts`; setiap halaman punya module di `src/routes/`, dikelompokkan ke folder `auth`, `supply`, `requests`, `reservations`, `pickups`, dan `admin`; `home.tsx` berada langsung di folder routes. Layout auth dan admin melindungi kelompok route. Katalog `/components` hanya didaftarkan saat development. Tidak ada lagi `BrowserRouter`, `App.jsx`, `main.jsx`, atau `index.html` manual.
 
 Untuk deployment SPA, publish direktori **build/client**. Host harus meneruskan URL halaman ke `index.html` dan menangani proxy `/api` ke Django secara terpisah. SSR runtime tidak diaktifkan; backend bisnis tetap Django.
