@@ -15,7 +15,10 @@ export default function Navbar({
   links = defaultLinks,
   accountLinks = [],
   onLogout,
-}: { user?: { name?: string } | null; links?: { to: string; label: string }[]; accountLinks?: { to: string; label: string }[]; onLogout?: () => void }) {
+  sessionStatus = 'anonymous',
+  onRetrySession,
+  loggingOut = false,
+}: { user?: { name?: string } | null; links?: { to: string; label: string }[]; accountLinks?: { to: string; label: string }[]; onLogout?: () => void; sessionStatus?: 'loading' | 'authenticated' | 'anonymous' | 'error'; onRetrySession?: () => void; loggingOut?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const menuId = useId()
@@ -47,7 +50,7 @@ export default function Navbar({
             </NavLink>
           ))}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {user ? (
             <div className="relative">
               <Button
@@ -62,7 +65,7 @@ export default function Navbar({
               >
                 <Icon name="profile" className="max-nav:hidden" />
                 <Icon name="account" className="nav:hidden" />
-                <span className="hidden nav:inline">
+                <span className="hidden max-w-36 truncate nav:inline">
                   {user.name || 'Akun saya'}
                 </span>
                 <Icon name="accountChevron" className="max-nav:hidden" />
@@ -82,6 +85,7 @@ export default function Navbar({
                 {onLogout && (
                   <Button
                     variant="ghost"
+                    loading={loggingOut}
                     onClick={() => {
                       close()
                       onLogout()
@@ -92,7 +96,7 @@ export default function Navbar({
                 )}
               </div>
             </div>
-          ) : (
+          ) : sessionStatus === 'anonymous' ? (
             <div className="hidden items-center gap-2 nav:flex">
               <Link className="inline-flex min-h-11 min-w-17 items-center justify-center px-3 py-2.5 text-sm leading-5 font-semibold no-underline" to="/login">
                 Masuk
@@ -101,9 +105,9 @@ export default function Navbar({
                 Daftar
               </Link>
             </div>
-          )}
+          ) : sessionStatus === 'loading' ? <span className="text-sm text-muted" role="status">Memeriksa sesi...</span> : <Button variant="ghost" onClick={onRetrySession}>Periksa sesi lagi</Button>}
           <Button
-            className="px-2.5 nav:hidden"
+            className="px-2.5 py-2.5 nav:hidden"
             variant="ghost"
             aria-label={menuOpen ? 'Tutup navigasi' : 'Buka navigasi'}
             aria-expanded={menuOpen}
@@ -128,7 +132,7 @@ export default function Navbar({
             {link.label}
           </NavLink>
         ))}
-        {!user && (
+        {!user && sessionStatus === 'anonymous' && (
           <>
             <Link to="/login" className={navLinkClass} onClick={close}>
               Masuk

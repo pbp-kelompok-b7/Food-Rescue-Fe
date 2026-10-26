@@ -4,6 +4,7 @@
 @theme {
   --font-sans: 'Nunito', 'Segoe UI', sans-serif;
   --font-brand: 'Unbounded', 'Nunito', sans-serif;
+  --font-caption: 'Silkscreen', monospace;
 
   --color-primary: #2c7a43;
   --color-primary-hover: #256238;
@@ -30,6 +31,7 @@
   --color-on-warning-container: #7b341a;
   --color-notice: #445248;
   --color-organic: #f0f9f1;
+  --color-harvest: #fff8eb;
   --color-organic-container: #e9eeeb;
   --color-on-organic: #34493c;
   --color-sell: #29332c;
@@ -41,6 +43,14 @@
   --shadow-card: 0 4px 12px #0000000a;
   --shadow-button: 0 1px 3px #00000008, 0 4px 12px #0000000a;
   --breakpoint-nav: 47.5625rem;
+}
+
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('/assets/fonts/Silkscreen-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
 }
 
 @font-face {
@@ -80,6 +90,9 @@
 
 /* Shared element styles also work on links; utilities can override them. */
 @layer components {
+  .landing-container { @apply mx-auto w-full max-w-312 px-6; }
+  .landing-heading { @apply font-brand text-xl leading-7.5 font-semibold lg:text-[22px]; }
+
   .fr-button {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md
       border-0 bg-primary p-3 text-center text-sm

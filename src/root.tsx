@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
-import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError } from 'react-router'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
 import AuthProvider from './auth/AuthProvider.tsx'
+import RouteError from './components/RouteError.tsx'
 import './index.css'
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -31,14 +32,9 @@ export function HydrateFallback() {
 }
 
 export function ErrorBoundary() {
-  const error = useRouteError()
-  const message = isRouteErrorResponse(error) && error.status === 404
-    ? 'Halaman tidak ditemukan.'
-    : 'Halaman gagal dimuat. Silakan coba lagi.'
   return (
     <main className="mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16">
-      <h1>{message}</h1>
-      <a className="fr-button" href="/">Kembali ke beranda</a>
+      <RouteError />
     </main>
   )
 }

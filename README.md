@@ -66,7 +66,8 @@ Proxy Vite berlaku pada server development dan preview lokal. Hosting production
 
 ## Status implementasi
 
-- Tersedia: route eksplisit untuk landing, akun, supply/request browse-detail-create-edit, claim/offer, reservation, pickup, dan moderasi admin; lihat `src/routes.ts`. Semua halaman bisnis masih placeholder.
+- Landing `/` menjelaskan dua resource types, DONATE/SELL, dan jalur Supply/Request. Navbar/Footer mengikuti hasil session API; akun dapat membuka profil, resource milik sendiri, reservasi, dan pickup. Link moderasi hanya untuk `is_admin` dari backend.
+- Tersedia route eksplisit untuk akun, supply/request browse-detail-create-edit, claim/offer, reservation, pickup, dan moderasi admin; lihat `src/routes.ts`. Halaman bisnis tersebut masih placeholder dan menjadi scope issue masing-masing.
 - Halaman modul masih placeholder dengan keterangan fitur belum tersedia. Belum ada data mock atau autentikasi palsu.
 - Backend lokal menyediakan endpoint scaffold. Login, register, listing, reservation, dan pickup belum terintegrasi dengan halaman frontend.
 - Library 27 komponen mengikuti Figma, termasuk kontrol form, feedback, navigasi, kartu resource, filter, lokasi, dan transaksi. Font Nunito dan Unbounded serta ikon Figma dibundel secara lokal.
@@ -118,6 +119,8 @@ npm.cmd run preview
 Preview menyajikan `build/client` pada port default 4173 dan mewarisi proxy API lokal dari konfigurasi Vite. Static hosting production tetap harus menyediakan proxy API sendiri.
 
 GitHub Actions menjalankan install dari lockfile, lint, typecheck, build, dan tes API client pada push, pull request, atau pemicu manual. Nama required status check: **Lint and build**.
+
+`npm test` juga menjalankan tes komponen dengan Vitest + jsdom untuk navigasi, route guard, redirect deep link, session/error states, dan fokus. Detail verifikasi SF-FE-03 beserta batasnya ada di [catatan verifikasi](docs/sf-fe-03-verification.md).
 
 ## Kontribusi
 
