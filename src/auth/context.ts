@@ -7,6 +7,7 @@ export interface AuthState {
   error: unknown
 }
 export interface AuthContextValue extends AuthState {
-  refresh: (signal?: AbortSignal) => Promise<void>
+  refresh: (signal?: AbortSignal) => Promise<AuthState>
+  clearSession: () => void
 }
 export const AuthContext = createContext<AuthContextValue | null>(null)

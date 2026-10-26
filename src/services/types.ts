@@ -10,6 +10,7 @@ export interface User {
   email?: string
   is_admin?: boolean
   is_staff?: boolean
+  is_active?: boolean
 }
 
 export interface Session {
