@@ -52,7 +52,7 @@ afterEach(async () => {
 describe('shared navigation and access', () => {
   it('gives guests both browse paths and describes the actual resource/mode options', async () => {
     await render(anonymous)
-    for (const text of ['Packaged Food Surplus', 'Compostable Food Waste', 'DONATE', 'SELL']) expect(container.textContent).toContain(text)
+    for (const text of ['Makanan siap konsumsi', 'Bahan organik', 'didonasikan atau dijual', 'Contoh tampilan listing, bukan ketersediaan langsung.']) expect(container.textContent).toContain(text)
     expect(container.querySelector('main a[href="/supply"]')).not.toBeNull()
     expect(container.querySelector('main a[href="/requests"]')).not.toBeNull()
     expect(container.querySelector('header a[href="/login"]')).not.toBeNull()

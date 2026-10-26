@@ -35,40 +35,42 @@ export default function SupplyCard({
           loading="lazy"
         />
       )}
-      <div className="flex flex-col items-start gap-3 p-5 [&_p]:m-0 [&>.fr-button]:mt-2 [&>.fr-button]:h-11 [&>.fr-button]:w-full [&>.fr-button]:py-0">
-        <div
-          className={`inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs leading-4 font-semibold ${sell ? 'bg-sell text-white' : 'bg-primary-container text-on-primary-container'}`}
-        >
-          <Icon name={sell ? 'sell' : 'donate'} />
-          {sell ? 'SELL' : 'Donasi'}
-        </div>
-        <h2>{title}</h2>
-        <p className="text-lg font-semibold">
-          {quantity} {unit} tersedia
-        </p>
-        <div className="flex w-full flex-col gap-2.5 border-t border-border pt-3 [&_p]:flex [&_p]:items-start [&_p]:gap-2 [&_p]:text-sm [&_p]:leading-5">
-          {deadline && (
-            <p className="text-ink">
-              <Icon name="clock" />
-              <span>
-                {organic ? 'Batas tersedia' : 'Batas konsumsi'}: {deadline}
-              </span>
-            </p>
+      <div className="flex flex-col items-start gap-5 p-5 [&_p]:m-0 [&>.fr-button]:h-11 [&>.fr-button]:w-full [&>.fr-button]:py-0">
+        <div className="flex w-full flex-col items-start gap-3">
+          <div
+            className={`inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs leading-4 font-semibold ${sell ? 'bg-sell text-white' : 'bg-primary-container text-on-primary-container'}`}
+          >
+            <Icon name={sell ? 'sell' : 'donate'} />
+            {sell ? 'SELL' : 'Donasi'}
+          </div>
+          <h2>{title}</h2>
+          <p className="text-lg font-semibold">
+            {quantity} {unit} tersedia
+          </p>
+          <div className="flex w-full flex-col gap-2.5 border-t border-border pt-3 [&_p]:flex [&_p]:items-start [&_p]:gap-2 [&_p]:text-sm [&_p]:leading-5">
+            {deadline && (
+              <p className="text-ink">
+                <Icon name="clock" />
+                <span>
+                  {organic ? 'Batas tersedia' : 'Batas konsumsi'}: {deadline}
+                </span>
+              </p>
+            )}
+            {area && (
+              <p className="text-muted">
+                <Icon name="pin" />
+                <span>{area}</span>
+              </p>
+            )}
+          </div>
+          {intendedUse && (
+            <span className="inline-flex items-center gap-1 self-start rounded-sm bg-neutral-container px-2 py-1 text-xs leading-4 font-semibold text-notice">
+              <Icon name={organic ? 'compost' : 'food'} />
+              {intendedUse}
+            </span>
           )}
-          {area && (
-            <p className="text-muted">
-              <Icon name="pin" />
-              <span>{area}</span>
-            </p>
-          )}
+          {condition && <p className="m-0 text-sm leading-5 text-notice">{condition}</p>}
         </div>
-        {intendedUse && (
-          <span className="inline-flex items-center gap-1 self-start rounded-sm bg-neutral-container px-2 py-1 text-xs leading-4 font-semibold text-notice">
-            <Icon name={organic ? 'compost' : 'food'} />
-            {intendedUse}
-          </span>
-        )}
-        {condition && <p className="m-0 text-sm leading-5 text-notice">{condition}</p>}
         {to && (
           <Link to={to} className="fr-button border border-outline bg-surface text-ink shadow-none hover:not-disabled:bg-organic active:not-disabled:bg-primary-container active:not-disabled:opacity-100">
             Lihat detail →<span className="sr-only"> {title}</span>

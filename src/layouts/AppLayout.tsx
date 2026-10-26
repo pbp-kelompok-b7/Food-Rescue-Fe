@@ -12,6 +12,7 @@ export { default as ErrorBoundary } from '../components/RouteError.tsx'
 
 export default function AppLayout() {
   const { pathname, search } = useLocation()
+  const landing = pathname === '/'
   const navigation = useNavigation()
   const auth = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -26,10 +27,14 @@ export default function AppLayout() {
     ...(user?.is_admin ? [{ to: '/admin', label: 'Moderasi admin' }] : []),
   ]
   const footerGroups = [
-    { title: 'Jelajahi', links: [{ to: '/supply', label: 'Cari resource' }, { to: '/requests', label: 'Papan request' }] },
+    { title: 'Jelajahi', links: [{ to: '/supply', label: 'Cari resource' }, { to: '/requests', label: 'Papan request' }, ...(landing ? [{ to: '/#cara-kerja', label: 'Cara kerja' }] : [])] },
     { title: 'Berbagi', links: [{ to: '/supply/new', label: 'Tawarkan resource' }, { to: '/requests/new', label: 'Buat request' }] },
     ...(user ? [{ title: 'Akun', links: accountLinks }] : auth.status === 'anonymous' ? [{ title: 'Akun', links: [{ to: '/login', label: 'Masuk' }, { to: '/register', label: 'Daftar' }] }] : []),
   ]
+  if (landing && !user) {
+    footerGroups[1] = { title: 'Berbagi & akun', links: footerGroups.slice(1).flatMap(group => group.links) }
+    footerGroups.splice(2)
+  }
 
   async function handleLogout() {
     if (loggingOut) return
@@ -54,12 +59,12 @@ export default function AppLayout() {
     <>
       <a className="fixed -top-25 left-4 z-10 bg-surface p-3 focus:top-3" href="#main-content">Langsung ke konten</a>
       <Navbar key={`${pathname}${search}:${auth.status}`} user={user ? { name: user.display_name || user.name || user.email || 'Akun saya' } : null} accountLinks={accountLinks} sessionStatus={auth.status} onRetrySession={() => auth.refresh()} onLogout={handleLogout} loggingOut={loggingOut} />
-      <main id="main-content" className="mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16" tabIndex={-1} aria-busy={navigation.state !== 'idle'}>
+      <main id="main-content" className={landing ? 'w-full flex-1 focus:outline-none' : 'mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16'} tabIndex={-1} aria-busy={navigation.state !== 'idle'}>
         {navigation.state !== 'idle' && <p role="status">Memuat halaman...</p>}
         {logoutError && <Alert tone="danger" title="Gagal keluar"><p>Sesi belum diakhiri. Coba lagi.</p><Button variant="secondary" onClick={handleLogout} loading={loggingOut}>Coba keluar lagi</Button></Alert>}
         <Outlet />
       </main>
-      <Footer groups={footerGroups} />
+      <Footer groups={footerGroups} landing={landing} />
     </>
   )
 }

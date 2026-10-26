@@ -107,7 +107,7 @@ export default function Navbar({
             </div>
           ) : sessionStatus === 'loading' ? <span className="text-sm text-muted" role="status">Memeriksa sesi...</span> : <Button variant="ghost" onClick={onRetrySession}>Periksa sesi lagi</Button>}
           <Button
-            className="px-2.5 nav:hidden"
+            className="px-2.5 py-2.5 nav:hidden"
             variant="ghost"
             aria-label={menuOpen ? 'Tutup navigasi' : 'Buka navigasi'}
             aria-expanded={menuOpen}
