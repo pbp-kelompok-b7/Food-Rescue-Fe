@@ -18,7 +18,8 @@ export default function Navbar({
   sessionStatus = 'anonymous',
   onRetrySession,
   loggingOut = false,
-}: { user?: { name?: string } | null; links?: { to: string; label: string }[]; accountLinks?: { to: string; label: string }[]; onLogout?: () => void; sessionStatus?: 'loading' | 'authenticated' | 'anonymous' | 'error'; onRetrySession?: () => void; loggingOut?: boolean }) {
+  authPage = false,
+}: { user?: { name?: string } | null; links?: { to: string; label: string }[]; accountLinks?: { to: string; label: string }[]; onLogout?: () => void; sessionStatus?: 'loading' | 'authenticated' | 'anonymous' | 'error'; onRetrySession?: () => void; loggingOut?: boolean; authPage?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const menuId = useId()
@@ -39,7 +40,7 @@ export default function Navbar({
         }
       }}
     >
-      <div className="flex min-h-17 items-center gap-4 px-5 py-3 nav:min-h-19 nav:px-6 nav:py-4">
+      <div className={`flex min-h-17 items-center gap-4 px-5 py-3 nav:px-6 nav:py-4 ${authPage ? 'nav:min-h-21' : 'nav:min-h-19'}`}>
         <Link className="flex-1 font-sans text-lg font-bold text-primary no-underline hover:no-underline nav:flex-none nav:font-brand nav:font-semibold" to="/" onClick={close}>
           food rescue
         </Link>

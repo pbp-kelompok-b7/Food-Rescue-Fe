@@ -1,7 +1,7 @@
-import ModulePage from '../../pages/ModulePage.tsx'
+import AuthForm from '../../auth/AuthForm.tsx'
 
 export const meta = () => [{ title: "Daftar akun | Food Rescue" }]
 
 export default function Page() {
-  return <ModulePage title="Daftar akun" />
+  return <AuthForm mode="register" />
 }

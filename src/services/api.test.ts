@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { apiRequest, ApiError } from './api.ts'
+import { apiRequest, ApiError, setCsrfToken } from './api.ts'
+import { login, logout, register } from './auth.ts'
 
 test('API client', async (t) => {
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
@@ -107,4 +108,32 @@ test('admin actions send the correct HTTP method and resource identifier', async
     { url: '/api/v1/admin/pickups/45/complete/', method: 'POST', body: JSON.stringify({ expected_version: 2 }) },
     { url: '/api/v1/admin/listings/a%2Fb/', method: 'DELETE', body: undefined },
   ])
+})
+
+test('auth writes bootstrap CSRF, rotate after login and accept an empty logout', async (t) => {
+  setCsrfToken(null)
+  t.after(() => setCsrfToken(null))
+  const calls: { url: string; token: string | null; body: unknown; credentials: unknown }[] = []
+  let token = 'before-login'
+  t.mock.method(globalThis, 'fetch', async (url: string, options: RequestInit & { headers: Headers }) => {
+    calls.push({ url, token: options.headers.get('X-CSRFToken'), body: options.body, credentials: options.credentials })
+    if (url.endsWith('csrf/')) return Response.json({ success: true, data: { csrf_token: token } })
+    if (url.endsWith('login/')) token = 'after-login'
+    if (url.endsWith('logout/')) return new Response(null, { status: 204 })
+    return Response.json({ success: true, data: { id: 1 } })
+  })
+  await register({ email: 'test@example.com', password: 'ExampleOnly!234', display_name: 'Test', whatsapp_number: null })
+  await login({ email: 'test@example.com', password: 'ExampleOnly!234' })
+  await apiRequest('users/me/', { method: 'PATCH', body: { display_name: 'Changed' } })
+  assert.equal(await logout(), null)
+  assert.deepEqual(calls.map(call => call.url), [
+    '/api/v1/auth/csrf/', '/api/v1/auth/register/', '/api/v1/auth/csrf/', '/api/v1/auth/login/',
+    '/api/v1/auth/csrf/', '/api/v1/users/me/', '/api/v1/auth/csrf/', '/api/v1/auth/logout/',
+  ])
+  assert.equal(calls[1].token, 'before-login')
+  assert.equal(calls[3].token, 'before-login')
+  assert.equal(calls[5].token, 'after-login')
+  assert.equal(calls[7].token, 'after-login')
+  assert.equal(calls[7].body, '{}')
+  assert.ok(calls.every(call => call.credentials === 'include'))
 })
