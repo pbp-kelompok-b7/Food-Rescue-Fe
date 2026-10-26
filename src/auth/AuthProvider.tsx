@@ -11,7 +11,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     setAuth({ status: 'loading', user: null, error: null })
     try {
       const session = await getSession({ signal })
-      if (!signal?.aborted) setAuth({ status: session.authenticated && session.user ? 'authenticated' : 'anonymous', user: session.user || null, error: null })
+      if (!signal?.aborted) {
+        const authenticated = session.authenticated && session.user !== null
+        setAuth({ status: authenticated ? 'authenticated' : 'anonymous', user: authenticated ? session.user : null, error: null })
+      }
     } catch (error) {
       if (!signal?.aborted) setAuth({ status: error instanceof ApiError && error.status === 401 ? 'anonymous' : 'error', user: null, error })
     }

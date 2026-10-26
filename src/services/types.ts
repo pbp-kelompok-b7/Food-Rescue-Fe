@@ -4,7 +4,8 @@ export type ApiPayload = Record<string, unknown>
 
 export interface User {
   id: number
-  username: string
+  username?: string
+  display_name?: string
   name?: string
   email?: string
   is_admin?: boolean

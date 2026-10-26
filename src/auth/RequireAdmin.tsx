@@ -4,7 +4,7 @@ import PageState from '../components/PageState.tsx'
 
 export default function RequireAdmin() {
   const { user } = useAuth()
-  if (!user?.is_admin && !user?.is_staff) {
+  if (!user?.is_admin) {
     return <PageState error title="Akses ditolak">Halaman ini memerlukan akses admin.</PageState>
   }
   return <Outlet />
