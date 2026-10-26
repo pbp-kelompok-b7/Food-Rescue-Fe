@@ -138,4 +138,22 @@ describe('shared navigation and access', () => {
     expect(router.state.location.pathname).toBe('/login')
     expect(container.textContent).not.toContain('Private')
   })
+
+  it('redirects only once while the lazy login module is pending', async () => {
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    let finishLogin: () => void = () => {}
+    const pendingLogin = new Promise<void>(resolve => { finishLogin = resolve })
+    router = createMemoryRouter([{
+      element: <AuthContext value={{ ...anonymous, refresh: vi.fn() }}><RequireAuth /></AuthContext>,
+      children: [{ path: '/profile', element: <h1>Private</h1> }],
+    }, { path: '/login', lazy: async () => { await pendingLogin; return { Component: () => <h1>Lazy login</h1> } } }], { initialEntries: ['/profile'] })
+    const navigate = vi.spyOn(router, 'navigate')
+    await act(async () => root.render(<RouterProvider router={router} />))
+    expect(navigate).toHaveBeenCalledTimes(1)
+    await act(async () => finishLogin())
+    expect(router.state.location.pathname).toBe('/login')
+    expect(container.textContent).toContain('Lazy login')
+  })
 })
