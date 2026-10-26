@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { apiRequest, ApiError, setCsrfToken } from './api.ts'
-import { login, logout, register } from './auth.ts'
+import { login, loginWithGoogle, logout, register } from './auth.ts'
 
 test('API client', async (t) => {
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
@@ -135,5 +135,25 @@ test('auth writes bootstrap CSRF, rotate after login and accept an empty logout'
   assert.equal(calls[5].token, 'after-login')
   assert.equal(calls[7].token, 'after-login')
   assert.equal(calls[7].body, '{}')
+  assert.ok(calls.every(call => call.credentials === 'include'))
+})
+
+test('Google sign-in sends only the credential and rotates CSRF before the next write', async (t) => {
+  setCsrfToken(null)
+  t.after(() => setCsrfToken(null))
+  let signedIn = false
+  const calls: { url: string; token: string | null; body: unknown; credentials: unknown }[] = []
+  t.mock.method(globalThis, 'fetch', async (url: string, options: RequestInit & { headers: Headers }) => {
+    calls.push({ url, token: options.headers.get('X-CSRFToken'), body: options.body, credentials: options.credentials })
+    if (url.endsWith('csrf/')) return Response.json({ success: true, data: { csrf_token: signedIn ? 'rotated-google-token' : 'guest-token' } })
+    signedIn = true
+    return Response.json({ success: true, data: { authenticated: true, user: { id: 1 } } })
+  })
+  await loginWithGoogle('google-credential')
+  await apiRequest('users/me/', { method: 'PATCH', body: { display_name: 'Updated' } })
+  assert.deepEqual(calls.map(call => call.url), ['/api/v1/auth/csrf/', '/api/v1/auth/google/', '/api/v1/auth/csrf/', '/api/v1/users/me/'])
+  assert.equal(calls[1].body, JSON.stringify({ credential: 'google-credential' }))
+  assert.equal(calls[1].token, 'guest-token')
+  assert.equal(calls[3].token, 'rotated-google-token')
   assert.ok(calls.every(call => call.credentials === 'include'))
 })

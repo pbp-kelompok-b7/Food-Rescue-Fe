@@ -5,11 +5,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AuthContext } from './context.ts'
 import { getSession } from '../services/auth.ts'
 import { setCsrfToken } from '../services/api.ts'
+import { disableGoogleAutoSelect } from './googleIdentity.ts'
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading', user: null, error: null })
   const revision = useRef(0)
   const clearSession = useCallback(() => {
+    disableGoogleAutoSelect()
     revision.current += 1
     setCsrfToken(null)
     setAuth({ status: 'anonymous', user: null, error: null })

@@ -8,6 +8,8 @@ import AppLayout from '../layouts/AppLayout.tsx'
 import LoginPage from '../routes/auth/login.tsx'
 import RegisterPage from '../routes/auth/register.tsx'
 import { setCsrfToken } from '../services/api.ts'
+import type { GoogleCredentialResponse, GoogleIdentity } from './googleIdentity.ts'
+import * as googleIdentity from './googleIdentity.ts'
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 let root: Root
@@ -19,16 +21,36 @@ let loginStatus = 200
 let sessionStatus = 200
 let registerErrors: { field: string | null; code: string; message: string }[] = []
 let logoutStatus = 204
+let googleStatus = 200
+let googleCode = ''
+let googleCallback: ((response: GoogleCredentialResponse) => void) | undefined
+let googleApi: GoogleIdentity
 const user = { id: 1, email: 'rina@example.com', display_name: 'Rina', is_admin: false, is_active: true }
 let requests: { path: string; body: Record<string, unknown> | null; token: string | null }[]
 
 function ok(data: unknown, status = 200) { return Response.json({ success: true, data }, { status }) }
 
-async function mount(path = '/login') {
+async function mount(path = '/login', googleClientId = '') {
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', googleClientId)
   authenticated = false
   csrfFailed = false
   loginStatus = sessionStatus = 200
   logoutStatus = 204
+  googleStatus = 200
+  googleCode = ''
+  googleCallback = undefined
+  googleApi = {
+    initialize: vi.fn(options => { googleCallback = options.callback }),
+    renderButton: vi.fn(element => {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.textContent = 'Lanjutkan dengan Google'
+      button.onclick = () => googleCallback?.({ credential: 'opaque-google-id-token' })
+      element.append(button)
+    }),
+    disableAutoSelect: vi.fn(),
+  }
+  if (googleClientId) vi.stubGlobal('google', { accounts: { id: googleApi } })
   registerErrors = []
   requests = []
   vi.stubGlobal('fetch', vi.fn(async (path: string, options: RequestInit & { headers: Headers }) => {
@@ -39,6 +61,11 @@ async function mount(path = '/login') {
       return ok({ authenticated, user: authenticated ? user : null })
     }
     if (path.endsWith('register/')) return registerErrors.length ? Response.json({ success: false, errors: registerErrors }, { status: 400 }) : ok(user, 201)
+    if (path.endsWith('google/')) {
+      if (googleStatus !== 200) return Response.json({ success: false, message: 'Private Google error', errors: [{ field: null, code: googleCode, message: 'Private Google error' }] }, { status: googleStatus })
+      authenticated = true
+      return ok({ authenticated: true, user })
+    }
     if (path.endsWith('login/')) {
       if (csrfFailed) return Response.json({ success: false, errors: [{ field: null, code: 'csrf_failed', message: 'CSRF Failed' }] }, { status: 403 })
       if (loginStatus !== 200) return Response.json({ success: false, message: 'Private internal detail', errors: [{ field: null, code: 'invalid_credentials', message: 'Private internal detail' }] }, { status: loginStatus })
@@ -208,4 +235,66 @@ it.each([401, 204])('clears session after logout %s even if subsequent session l
   expect(router.state.location.pathname).toBe('/login')
   expect(container.textContent).not.toContain('Profil privat')
   expect(container.querySelector('form')).not.toBeNull()
+})
+
+it.each(['/login', '/register'])('exchanges Google credentials for a server session from %s and restores the destination', async path => {
+  await mount(`${path}?next=%2Fprofile%3Ftab%3Dcontact%23whatsapp`, `test-${path.slice(1)}.apps.googleusercontent.com`)
+  const googleButton = container.querySelector<HTMLButtonElement>('[aria-label="Lanjutkan dengan Google"] button')!
+  expect(googleButton).not.toBeNull()
+  await act(async () => googleButton.click())
+  expect(requests.find(item => item.path.endsWith('google/'))).toMatchObject({ body: { credential: 'opaque-google-id-token' }, token: 'guest-token' })
+  expect(requests.filter(item => item.path.endsWith('csrf/'))).toHaveLength(2)
+  expect(router.state.location.pathname + router.state.location.search + router.state.location.hash).toBe('/profile?tab=contact#whatsapp')
+  expect(container.textContent).toContain('Profil privat')
+  expect(requests.some(item => item.path.endsWith('register/'))).toBe(false)
+  const logout = Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Keluar')!
+  await act(async () => logout.click())
+  expect(googleApi.disableAutoSelect).toHaveBeenCalledOnce()
+})
+
+it.each([
+  [409, 'account_link_required', 'Masuk dengan metode akun yang sudah ada.'],
+  [503, 'google_unavailable', 'Google Sign-In sementara tidak tersedia.'],
+  [401, 'invalid_credentials', 'Login Google gagal atau akun tidak aktif.'],
+  [403, 'csrf_failed', 'Verifikasi keamanan gagal.'],
+])('handles Google %s/%s without exposing server details or authenticating', async (status, code, message) => {
+  await mount('/login', `test-${code}.apps.googleusercontent.com`)
+  googleStatus = Number(status)
+  googleCode = String(code)
+  await act(async () => { googleCallback?.({ credential: 'rejected-token' }) })
+  expect(container.textContent).toContain(message)
+  expect(container.textContent).not.toContain('Private Google error')
+  expect(authenticated).toBe(false)
+  expect(router.state.location.pathname).toBe('/login')
+  expect(container.querySelector('form')).not.toBeNull()
+})
+
+it('prevents duplicate Google callbacks and ignores callbacks after leaving auth', async () => {
+  await mount('/login', 'test-duplicate.apps.googleusercontent.com')
+  await act(async () => {
+    googleCallback?.({ credential: 'duplicate-token' })
+    googleCallback?.({ credential: 'duplicate-token' })
+  })
+  expect(requests.filter(item => item.path.endsWith('google/'))).toHaveLength(1)
+  await act(async () => { googleCallback?.({ credential: 'late-token' }) })
+  expect(requests.filter(item => item.path.endsWith('google/'))).toHaveLength(1)
+})
+
+it('keeps email login usable when the Google client ID is absent', async () => {
+  await mount()
+  const button = Array.from(container.querySelectorAll('button')).find(item => item.textContent?.includes('Lanjutkan dengan Google'))!
+  await act(async () => button.click())
+  expect(container.textContent).toContain('Google Sign-In belum dikonfigurasi')
+  credentials()
+  await submit()
+  expect(router.state.location.pathname).toBe('/')
+})
+
+it('keeps email login usable after the Google SDK fails to load', async () => {
+  vi.spyOn(googleIdentity, 'loadGoogleIdentity').mockRejectedValue(new Error('Blocked SDK'))
+  await mount('/login', 'test-failure.apps.googleusercontent.com')
+  expect(container.textContent).toContain('Google Sign-In gagal dimuat')
+  credentials()
+  await submit()
+  expect(router.state.location.pathname).toBe('/')
 })

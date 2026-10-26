@@ -1,7 +1,8 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { useAuth } from './useAuth.ts'
-import { login, register } from '../services/auth.ts'
+import { login, loginWithGoogle, register } from '../services/auth.ts'
+import GoogleSignInButton from './GoogleSignInButton.tsx'
 import { ApiError } from '../services/api.ts'
 import Alert from '../components/ui/Alert.tsx'
 import Button from '../components/ui/Button.tsx'
@@ -41,6 +42,30 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const errorRef = useRef<HTMLDivElement>(null)
+
+  async function handleGoogle(credential: string) {
+    if (pending.current) return
+    pending.current = true
+    setSubmitting(true)
+    setError(null)
+    setFieldErrors({})
+    try {
+      await loginWithGoogle(credential)
+      const session = await auth.refresh()
+      if (session.status !== 'authenticated') throw session.error || new ApiError('Session unavailable', 401, null)
+      navigate(destination, { replace: true })
+    } catch (failure) {
+      const codes = failure instanceof ApiError ? failure.errors.map(item => item.code) : []
+      setError(codes.includes('account_link_required') ? 'Email ini sudah terdaftar. Masuk dengan metode akun yang sudah ada.'
+        : codes.includes('google_unavailable') ? 'Google Sign-In sementara tidak tersedia. Coba lagi nanti atau gunakan email.'
+        : failure instanceof ApiError && failure.status === 401 ? 'Login Google gagal atau akun tidak aktif. Coba lagi atau gunakan metode masuk akunmu.'
+        : errorMessage(failure))
+      requestAnimationFrame(() => errorRef.current?.focus())
+    } finally {
+      pending.current = false
+      setSubmitting(false)
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -111,7 +136,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         )}
             {!registering && state?.registered && <Alert tone="success" title="Akun berhasil dibuat">Silakan masuk dengan akun barumu.</Alert>}
             {error && <div ref={errorRef} tabIndex={-1}><Alert tone="danger" title={registering ? 'Belum berhasil mendaftar' : 'Belum berhasil masuk'}>{error}</Alert></div>}
-            <Button variant="secondary" disabled className="h-12 w-full gap-2 shadow-none"><img src="/assets/figma/auth-google-g.png" alt="" width={18} height={18} className="size-4.5 object-contain" />Lanjutkan dengan Google</Button>
+            <GoogleSignInButton disabled={submitting || auth.status === 'loading'} onCredential={handleGoogle} />
             <div className="flex h-5 items-center gap-2 text-[13px] leading-5 text-muted">
               <span className="h-px flex-1 bg-border" />
               <span>atau gunakan email</span>

@@ -15,6 +15,13 @@ export async function login(body: ApiPayload) {
   await bootstrapCsrf() // Login rotates the CSRF token.
   return data
 }
+export async function loginWithGoogle(credential: string) {
+  await bootstrapCsrf()
+  const data = await apiRequest<Session>('auth/google/', { method: 'POST', body: { credential } })
+  setCsrfToken(null)
+  await bootstrapCsrf()
+  return data
+}
 export async function register(body: ApiPayload) {
   await bootstrapCsrf()
   return apiRequest('auth/register/', { method: 'POST', body })
