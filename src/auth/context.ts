@@ -9,5 +9,6 @@ export interface AuthState {
 export interface AuthContextValue extends AuthState {
   refresh: (signal?: AbortSignal) => Promise<AuthState>
   clearSession: () => void
+  syncUser: (user: User) => void
 }
 export const AuthContext = createContext<AuthContextValue | null>(null)

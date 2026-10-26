@@ -32,5 +32,8 @@ export async function logout() {
   setCsrfToken(null)
   return data
 }
-export const getProfile = () => apiRequest<User>('users/me/')
-export const updateProfile = (body: ApiPayload) => apiRequest('users/me/', { method: 'PATCH', body })
+export const getProfile = (options: ApiRequestOptions = {}) => apiRequest<User>('users/me/', options)
+export async function updateProfile(body: { display_name: string; whatsapp_number: string | null }, signal?: AbortSignal) {
+  await bootstrapCsrf()
+  return apiRequest<User>('users/me/', { method: 'PATCH', body: { display_name: body.display_name, whatsapp_number: body.whatsapp_number }, signal })
+}

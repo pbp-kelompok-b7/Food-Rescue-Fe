@@ -6,6 +6,7 @@ export interface User {
   id: number
   username?: string
   display_name?: string
+  whatsapp_number?: string | null
   name?: string
   email?: string
   is_admin?: boolean

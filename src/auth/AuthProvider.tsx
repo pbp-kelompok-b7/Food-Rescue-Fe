@@ -6,10 +6,15 @@ import { AuthContext } from './context.ts'
 import { getSession } from '../services/auth.ts'
 import { setCsrfToken } from '../services/api.ts'
 import { disableGoogleAutoSelect } from './googleIdentity.ts'
+import type { User } from '../services/types.ts'
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading', user: null, error: null })
   const revision = useRef(0)
+  const syncUser = useCallback((user: User) => {
+    setAuth(current => current.status === 'authenticated' && current.user?.id === user.id
+      ? { ...current, user } : current)
+  }, [])
   const clearSession = useCallback(() => {
     disableGoogleAutoSelect()
     revision.current += 1
@@ -39,5 +44,5 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const timeout = setTimeout(() => refresh(controller.signal), 0)
     return () => { clearTimeout(timeout); controller.abort() }
   }, [refresh])
-  return <AuthContext.Provider value={{ ...auth, refresh, clearSession }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ ...auth, refresh, clearSession, syncUser }}>{children}</AuthContext.Provider>
 }
