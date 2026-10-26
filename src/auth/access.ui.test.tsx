@@ -26,7 +26,7 @@ async function render(auth: AuthState, path = '/') {
   document.body.append(container)
   root = createRoot(container)
   router = createMemoryRouter([{
-    element: <AuthContext value={{ ...auth, refresh: vi.fn(), clearSession: vi.fn() }}><AppLayout /></AuthContext>,
+    element: <AuthContext value={{ ...auth, refresh: vi.fn(), clearSession: vi.fn(), syncUser: vi.fn() }}><AppLayout /></AuthContext>,
     children: [
       { index: true, element: <HomePage /> },
       { path: '/login', element: <h1>Masuk akun</h1> },
@@ -146,7 +146,7 @@ describe('shared navigation and access', () => {
     let finishLogin: () => void = () => {}
     const pendingLogin = new Promise<void>(resolve => { finishLogin = resolve })
     router = createMemoryRouter([{
-      element: <AuthContext value={{ ...anonymous, refresh: vi.fn(), clearSession: vi.fn() }}><RequireAuth /></AuthContext>,
+      element: <AuthContext value={{ ...anonymous, refresh: vi.fn(), clearSession: vi.fn(), syncUser: vi.fn() }}><RequireAuth /></AuthContext>,
       children: [{ path: '/profile', element: <h1>Private</h1> }],
     }, { path: '/login', lazy: async () => { await pendingLogin; return { Component: () => <h1>Lazy login</h1> } } }], { initialEntries: ['/profile'] })
     const navigate = vi.spyOn(router, 'navigate')
