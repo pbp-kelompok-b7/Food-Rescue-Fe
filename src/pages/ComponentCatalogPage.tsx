@@ -1,5 +1,6 @@
 import type { LocationResult } from '../components/location/LocationPicker.tsx'
 import { useState } from 'react'
+import ReferenceDataExamples from './ReferenceDataExamples.tsx'
 import {
   Button,
   FormField,
@@ -49,10 +50,11 @@ const filterFields = [
   },
 ]
 const demoLocation = {
-  id: 'beji',
   label: 'Beji, Kota Depok, Jawa Barat',
+  area: 'Depok',
   latitude: -6.368,
   longitude: 106.829,
+  attribution: 'OpenStreetMap / Nominatim · Contoh hasil pencarian, bukan data lokasi aktif.',
 }
 const agreement = {
   title: 'Nasi kotak surplus',
@@ -88,8 +90,8 @@ export default function ComponentCatalogPage() {
       <div className="mb-8 [&_p]:mb-0 [&_p]:max-w-[64ch] [&_p]:text-muted">
         <h1>Komponen Food Rescue</h1>
         <p>
-          Katalog development · Semua data adalah contoh, tanpa transaksi atau
-          pencarian lokasi aktif.
+          Katalog development · Data visual adalah contoh. Bagian reference-data
+          dan lokasi memakai API backend, tanpa membuat transaksi.
         </p>
       </div>
       <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
@@ -392,7 +394,7 @@ export default function ComponentCatalogPage() {
             setSelected(null)
           }}
           results={results}
-          selectedId={selected?.id}
+          selected={selected}
           onSelect={setSelected}
           searched={searched}
           attribution="OpenStreetMap / Nominatim · Contoh hasil pencarian, bukan data lokasi aktif."
@@ -401,6 +403,7 @@ export default function ComponentCatalogPage() {
           <p role="status">Lokasi contoh terpilih: {selected.label}</p>
         )}
       </section>
+      <ReferenceDataExamples />
       <section className="flex flex-col gap-5 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-3">
         <h2>Transaction components</h2>
         <div className="grid grid-cols-1 items-start gap-6 nav:grid-cols-2">
