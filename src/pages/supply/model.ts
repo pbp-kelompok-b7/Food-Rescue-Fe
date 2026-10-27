@@ -1,5 +1,8 @@
 import { ApiError } from '../../services/api.ts'
-import type { Listing } from '../../services/listings.ts'
+import type { Listing, ListingWrite } from '../../services/listings.ts'
+import type { LocationResult, ReferenceData } from '../../services/reference.ts'
+import { locationPayload } from '../../services/reference.ts'
+import { emptyResourceFields, toJakartaInput, toJakartaTimestamp, validateResourceFields, type ResourceFieldValues } from '../../components/resources/resourceFields.ts'
 
 const labels: Record<string, string> = {
   PACKAGED_FOOD_SURPLUS: 'Makanan kemasan', COMPOSTABLE_FOOD_WASTE: 'Sisa organik',
@@ -33,4 +36,62 @@ export function supplyError(error: unknown) {
     if (error.status === 501) return 'Layanan supply belum tersedia. Coba lagi nanti.'
   }
   return 'Supply belum dapat diproses. Periksa koneksi dan coba lagi.'
+}
+export interface SupplyValues {
+  fields: ResourceFieldValues
+  title: string
+  description: string
+  condition: string
+  storage_notes: string
+  allergen_notes: string
+  packaging_status: string
+  location: LocationResult | null
+}
+export const emptySupply: SupplyValues = {
+  fields: { ...emptyResourceFields }, title: '', description: '', condition: '',
+  storage_notes: '', allergen_notes: '', packaging_status: '', location: null,
+}
+export function listingValues(listing: Listing): SupplyValues {
+  return {
+    title: listing.title, description: listing.description, condition: listing.condition,
+    storage_notes: listing.storage_notes || '', allergen_notes: listing.allergen_notes || '', packaging_status: listing.packaging_status || '',
+    location: { ...listing.location, attribution: '' },
+    fields: { ...emptyResourceFields, resource_type: listing.resource_type, category: listing.category, unit: listing.unit, suitability: [...listing.suitability], mode: listing.mode, unit_price: listing.unit_price, quantity: quantityText(listing.quantity_total), deadline: toJakartaInput(listing.available_until) },
+  }
+}
+export function validateSupply(value: SupplyValues, data: ReferenceData, initial?: Listing): Record<string, string> {
+  const errors = validateResourceFields(value.fields, data, 'supply')
+  // Editing another field must preserve an unchanged (possibly expired) deadline.
+  if (initial && value.fields.deadline === toJakartaInput(initial.available_until)) delete errors.deadline
+  for (const [field, max] of [['title', 200], ['description', 5000], ['condition', 1000]] as const) {
+    if (!value[field].trim()) errors[field] = 'Isi informasi ini.'
+    else if (value[field].trim().length > max) errors[field] = 'Informasi terlalu panjang.'
+  }
+  for (const [field, max] of [['storage_notes', 2000], ['allergen_notes', 2000], ['packaging_status', 200]] as const) if (value[field].trim().length > max) errors[field] = 'Informasi terlalu panjang.'
+  const location = value.location
+  if (!location || !location.label.trim() || location.label.length > 300 || !location.area.trim() || location.area.length > 100 || !Number.isFinite(location.latitude) || Math.abs(location.latitude) > 90 || !Number.isFinite(location.longitude) || Math.abs(location.longitude) > 180) errors.location = 'Cari dan pilih lokasi pickup yang valid.'
+  return errors
+}
+export function supplyPayload(value: SupplyValues, initial?: Listing): ListingWrite {
+  const fields = value.fields
+  return {
+    title: value.title.trim(), description: value.description.trim(), condition: value.condition.trim(),
+    resource_type: fields.resource_type, category: fields.category, unit: fields.unit,
+    suitability: [...fields.suitability], mode: fields.mode as ListingWrite['mode'],
+    unit_price: fields.mode === 'DONATE' ? '0.00' : fields.unit_price,
+    quantity_total: fields.quantity,
+    available_until: initial && fields.deadline === toJakartaInput(initial.available_until) ? initial.available_until : toJakartaTimestamp(fields.deadline)!,
+    location: locationPayload(value.location!), storage_notes: value.storage_notes.trim() || null,
+    allergen_notes: value.allergen_notes.trim() || null, packaging_status: value.packaging_status.trim() || null,
+  }
+}
+export function listingChanges(value: SupplyValues, initial: Listing): Partial<ListingWrite> {
+  const next = supplyPayload(value, initial)
+  const previous = supplyPayload(listingValues(initial), initial)
+  const changed = (Object.keys(next) as (keyof ListingWrite)[]).filter(key => {
+    if (key === 'suitability') return [...next.suitability].sort().join('|') !== [...previous.suitability].sort().join('|')
+    if (key === 'unit_price' || key === 'quantity_total') return quantityText(next[key]) !== quantityText(previous[key])
+    return JSON.stringify(next[key]) !== JSON.stringify(previous[key])
+  })
+  return Object.fromEntries(changed.map(key => [key, next[key]]))
 }

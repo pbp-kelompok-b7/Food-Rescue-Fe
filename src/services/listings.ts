@@ -1,4 +1,5 @@
 import { apiRequest, type ApiRequestOptions } from './api.ts'
+import { bootstrapCsrf } from './auth.ts'
 import type { ResourceLocation } from './reference.ts'
 import { resourceApi } from './resources.ts'
 import type { QueryParams, ResourceId } from './types.ts'
@@ -41,4 +42,13 @@ export const listingsApi = {
   ...resourceApi('listings'),
   list: (params: QueryParams = {}, options: ApiRequestOptions = {}) => apiRequest<ListingPage>(`listings/?${new URLSearchParams(params)}`, options),
   detail: (id: ResourceId, options: ApiRequestOptions = {}) => apiRequest<Listing>(listingPath(id), options),
+  async create(body: ListingWrite) {
+    await bootstrapCsrf()
+    return apiRequest<Listing>('listings/', { method: 'POST', body })
+  },
+  async update(id: ResourceId, body: Partial<ListingWrite>) {
+    const path = listingPath(id)
+    await bootstrapCsrf()
+    return apiRequest<Listing>(path, { method: 'PATCH', body })
+  },
 }

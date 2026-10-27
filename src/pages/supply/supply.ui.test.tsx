@@ -9,7 +9,9 @@ import type { Listing } from '../../services/listings.ts'
 import type { ReferenceData } from '../../services/reference.ts'
 import BrowseSupply from './BrowseSupply.tsx'
 import SupplyDetail from './SupplyDetail.tsx'
-import { claimable } from './model.ts'
+import SupplyForm from './SupplyForm.tsx'
+import EditSupply from './EditSupply.tsx'
+import { claimable, listingChanges, listingValues, supplyPayload, validateSupply } from './model.ts'
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 const food = 'PACKAGED_FOOD_SURPLUS'
@@ -69,7 +71,7 @@ async function mount(path = '/supply', userId: number | null = null, referenceRe
     element: <AuthProvider><Outlet /></AuthProvider>, children: [
       { path: '/supply', element: <BrowseSupply /> }, { path: '/supply/:id', element: <SupplyDetail /> },
       { element: <RequireAuth />, children: [
-        { path: '/supply/:id/claim', element: <p>Claim task</p> },
+        { path: '/supply/new', element: <SupplyForm /> }, { path: '/supply/:id/edit', element: <EditSupply /> }, { path: '/supply/:id/claim', element: <p>Claim task</p> },
       ] },
       { path: '/login', element: <h1>Masuk</h1> },
     ],
@@ -93,7 +95,24 @@ async function click(text: string) {
   expect(element, `Button ${text}`).toBeDefined()
   await act(async () => element.click())
 }
+async function check(selector: string) { await act(async () => container.querySelector<HTMLInputElement>(selector)!.click()) }
 async function submit() { await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))) }
+const writes = () => requests.filter(request => ['POST', 'PATCH'].includes(request.method))
+async function completeForm(mode = 'DONATE') {
+  await input('[name="title"]', 'Roti gandum')
+  await input('[name="description"]', 'Roti baru dikemas')
+  await check(`[name="resource_type"][value="${food}"]`)
+  await select('[name="category"]', 'prepared_meal')
+  await check('[name="suitability"]')
+  await input('[name="quantity_total"]', '10')
+  await select('[name="unit"]', 'box')
+  await check(`[name="mode"][value="${mode}"]`)
+  if (mode === 'SELL') await input('[name="unit_price"]', '15000.50')
+  await input('[name="condition"]', 'Kemasan utuh')
+  await input('[name="available_until"]', '2099-11-01T17:30')
+  await input('[type="search"]', 'Kampus UI')
+  await click('Cari lokasi'); await click('Pilih')
+}
 afterEach(async () => {
   await act(async () => root?.unmount()); router?.dispose(); container?.remove()
   vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); setCsrfToken(null)
@@ -157,11 +176,16 @@ it('keeps the guest claim destination and never renders private contact data', a
   await act(async () => claim.click())
   expect(router.state.location.state).toEqual({ from: '/supply/7/claim' })
 })
-it('offers edit to the owner and prevents self-claim', async () => {
+it('offers edit to the owner, prevents self-claim and rejects a non-owner edit route', async () => {
   await mount('/supply/7', 1)
   expect(container.querySelector('a[href="/supply/7/edit"]')).not.toBeNull()
   expect(container.querySelector('a[href="/supply/7/claim"]')).toBeNull()
-
+  await act(async () => { await router.navigate('/supply/7/edit') })
+  expect(container.querySelector('form')).not.toBeNull()
+  listing.owner.id = 2
+  await act(async () => { await router.navigate('/supply/8/edit') }); await settle()
+  expect(container.textContent).toContain('Akses ditolak')
+  expect(container.querySelector('form')).toBeNull()
 })
 it.each([404, 501, 500])('shows a safe detail error for %s', async status => {
   await mount('/supply')
@@ -180,6 +204,71 @@ it('renders the expired state and prevents navigation to claim', async () => {
   expect(container.querySelector('a[href="/login"]')).toBeNull()
   expect([...container.querySelectorAll('button')].some(button => button.textContent === 'Supply tidak tersedia' && button.disabled)).toBe(true)
 })
+it.each(['DONATE', 'SELL'])('creates %s with selected location, CSRF and no readonly properties', async mode => {
+  await mount('/supply/new', 1); await completeForm(mode); await submit()
+  expect(writes()).toHaveLength(1)
+  const request = writes()[0]
+  expect(request.csrf).toBe('supply-token'); expect(request.credentials).toBe('include')
+  expect(request.body).toMatchObject({ title: 'Roti gandum', quantity_total: '10', mode, unit_price: mode === 'SELL' ? '15000.50' : '0.00', location: pickup, available_until: '2099-11-01T17:30:00+07:00' })
+  for (const key of ['id', 'owner', 'status', 'version', 'quantity_available']) expect(request.body).not.toHaveProperty(key)
+  expect(request.body?.location).not.toHaveProperty('attribution')
+  expect(router.state.location.pathname).toBe('/supply/7')
+})
+it('prevents double submission while CSRF or the mutation is pending', async () => {
+  await mount('/supply/new', 1); await completeForm()
+  await act(async () => {
+    const form = container.querySelector('form')!
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  expect(writes()).toHaveLength(1)
+  expect(requests.filter(item => item.url.pathname.endsWith('csrf/'))).toHaveLength(1)
+})
+it('validates before sending and clears incompatible category/suitability when resource type changes', async () => {
+  await mount('/supply/new', 1); await submit(); expect(writes()).toHaveLength(0)
+  expect(container.querySelector('[name="title"]')?.getAttribute('aria-invalid')).toBe('true')
+  await completeForm(); await check(`[name="resource_type"][value="${waste}"]`)
+  expect(container.querySelector<HTMLSelectElement>('[name="category"]')!.value).toBe('')
+  expect(container.querySelector<HTMLInputElement>('[name="suitability"]')!.checked).toBe(false)
+  await submit(); expect(writes()).toHaveLength(0)
+})
+it('prefills edit including the existing location and sends a minimal PATCH preserving second precision', async () => {
+  await mount('/supply/7/edit', 1)
+  expect(container.querySelector<HTMLInputElement>('[name="quantity_total"]')!.value).toBe('10')
+  expect(container.textContent).toContain('Lokasi terpilih: Kampus UI Depok')
+  await input('[name="description"]', 'Deskripsi diperbarui'); await submit()
+  expect(writes()[0].method).toBe('PATCH')
+  expect(writes()[0].body).toEqual({ description: 'Deskripsi diperbarui' })
+})
+it.each([[400, 'invalid'], [403, 'csrf_failed'], [403, 'permission_denied'], [409, 'quantity_floor'], [409, 'unit_locked'], [500, 'server_error'], [501, 'not_implemented']])('preserves edits after %s %s and does not show success', async (status, code) => {
+  await mount('/supply/7/edit', 1)
+  writeStatus = status as number; writeCode = code as string
+  await input('[name="title"]', 'Unsaved title'); await submit()
+  expect(router.state.location.pathname).toBe('/supply/7/edit')
+  expect(container.querySelector<HTMLInputElement>('[name="title"]')!.value).toBe('Unsaved title')
+  expect(container.textContent).toContain('Supply belum disimpan')
+  expect(container.textContent).not.toContain('Internal secret')
+  if (status === 400) expect(container.textContent).toContain('Jumlah ditolak server.')
+  if (status === 409) expect(container.querySelector('a[target="_blank"]')).not.toBeNull()
+})
+it('redirects an expired write session to login with the edit destination', async () => {
+  await mount('/supply/7/edit', 1); writeStatus = 401
+  await input('[name="title"]', 'Changed'); await submit()
+  expect(router.state.location.pathname).toBe('/login')
+  expect(router.state.location.state).toEqual({ from: '/supply/7/edit' })
+})
+it('does not write if CSRF bootstrap fails', async () => {
+  await mount('/supply/7/edit', 1); csrfStatus = 403
+  await input('[name="title"]', 'Changed'); await submit()
+  expect(writes()).toHaveLength(0)
+  expect(container.textContent).toContain('Verifikasi keamanan gagal')
+})
+it('clears an expired session while loading edit and preserves the destination', async () => {
+  await mount('/supply', 1); detailStatus = 401
+  await act(async () => { await router.navigate('/supply/7/edit') }); await settle()
+  expect(router.state.location.pathname).toBe('/login')
+  expect(router.state.location.state).toEqual({ from: '/supply/7/edit' })
+})
 it('applies mobile sheet filters and discards an unapplied selection on closing', async () => {
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value() { this.open = true } })
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value() { this.open = false } })
@@ -195,4 +284,15 @@ it('applies mobile sheet filters and discards an unapplied selection on closing'
   expect(router.state.location.search).toContain(`resource_type=${waste}`)
   expect(router.state.location.search).not.toContain('page=')
   expect(container.querySelector<HTMLDialogElement>('dialog')!.open).toBe(false)
+})
+it('preserves terminal deadlines on PATCH, validates new deadlines, and keeps decimal quantities as strings', () => {
+  const expired = { ...fixture, status: 'EXPIRED', available_until: '2020-01-01T00:00:45+07:00' }
+  const values = listingValues(expired)
+  values.description = 'Updated description'
+  expect(validateSupply(values, references, expired)).toEqual({})
+  expect(listingChanges(values, expired)).toEqual({ description: 'Updated description' })
+  values.fields.deadline = '2019-12-01T17:30'
+  expect(validateSupply(values, references, expired)).toHaveProperty('deadline')
+  values.fields = { ...values.fields, unit: 'kg', quantity: '999999999.999' }
+  expect(supplyPayload(values).quantity_total).toBe('999999999.999')
 })
