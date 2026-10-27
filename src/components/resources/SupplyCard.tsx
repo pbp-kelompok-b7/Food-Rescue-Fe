@@ -1,12 +1,15 @@
 import type * as React from 'react'
 import { Link } from 'react-router'
 import Icon from '../ui/Icon.tsx'
+import Badge from '../ui/Badge.tsx'
 
 export default function SupplyCard({
   title,
   resourceType = 'packaged',
   mode = 'DONATE',
   quantity,
+  unitPrice,
+  status,
   unit,
   deadline,
   area,
@@ -16,7 +19,7 @@ export default function SupplyCard({
   photoAlt = '',
   to,
   action,
-}: { title: string; resourceType?: 'packaged' | 'organic'; mode?: 'DONATE' | 'SELL'; quantity: number; unit: string; deadline?: string; area?: string; intendedUse?: string; condition?: string; photoUrl?: string; photoAlt?: string; to?: string; action?: React.ReactNode }) {
+}: { title: string; resourceType?: 'packaged' | 'organic'; mode?: 'DONATE' | 'SELL'; quantity: number | string; unitPrice?: string; status?: { code: string; label: string }; unit: string; deadline?: string; area?: string; intendedUse?: string; condition?: string; photoUrl?: string; photoAlt?: string; to?: string; action?: React.ReactNode }) {
   const organic = resourceType === 'organic'
   const sell = mode === 'SELL'
   return (
@@ -41,9 +44,11 @@ export default function SupplyCard({
             className={`inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs leading-4 font-semibold ${sell ? 'bg-sell text-white' : 'bg-primary-container text-on-primary-container'}`}
           >
             <Icon name={sell ? 'sell' : 'donate'} />
-            {sell ? 'SELL' : 'Donasi'}
+            {sell ? 'Jual' : 'Donasi'}
           </div>
           <h2>{title}</h2>
+          {status && <Badge status={status.code}>{status.label}</Badge>}
+          {sell && unitPrice && <p className="text-sm font-semibold">{unitPrice} / {unit}</p>}
           <p className="text-lg font-semibold">
             {quantity} {unit} tersedia
           </p>
