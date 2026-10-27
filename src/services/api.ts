@@ -21,13 +21,15 @@ export class ApiError extends Error {
   status: number
   data: unknown
   errors: ApiFieldError[]
+  retryAfter: number | null
 
-  constructor(message: string, status: number, data: unknown) {
+  constructor(message: string, status: number, data: unknown, retryAfter: number | null = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.data = data
     this.errors = isRecord(data) && Array.isArray(data.errors) ? data.errors : []
+    this.retryAfter = retryAfter
   }
 }
 
@@ -69,7 +71,11 @@ export async function apiRequest<T = unknown>(path: string, { method = 'GET', bo
   const envelope = isRecord(data) ? data : null
   if (!response.ok || envelope?.success === false) {
     const message = envelope?.message || envelope?.detail
-    throw new ApiError(typeof message === 'string' ? message : 'Permintaan gagal diproses.', response.status, data)
+    const retryHeader = response.headers.get('Retry-After')
+    let retryAfter: number | null = null
+    if (retryHeader && /^\d+$/.test(retryHeader.trim())) retryAfter = Number(retryHeader)
+    else if (retryHeader && Number.isFinite(Date.parse(retryHeader))) retryAfter = Math.max(0, Math.ceil((Date.parse(retryHeader) - Date.now()) / 1000))
+    throw new ApiError(typeof message === 'string' ? message : 'Permintaan gagal diproses.', response.status, data, retryAfter)
   }
   return (envelope?.success === true ? envelope.data : data) as T
 }

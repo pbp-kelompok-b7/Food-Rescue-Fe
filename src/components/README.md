@@ -59,7 +59,10 @@ import { Button, FormField, Input, QuantityInput } from '../components/index.ts'
 | `SearchBar` | `value`, `onChange(string)`, `onSearch(string)`, `label`, `placeholder`, `loading`. |
 | `ResourceFilters` | `fields: {name, label, options, placeholder?}[]`, `value`, `onChange(nextValue)`, `onReset`. |
 | `FilterSheet` | `open`, `onClose`, `onApply`, `title`, `children`. State draft/apply filter dikelola parent. |
-| `LocationPicker` | `query`, `onQueryChange`, `onSearch`, `results: {id, label, latitude?, longitude?}[]`, `selectedId`, `onSelect(result)`, `loading`, `error`, `searched`, `attribution`. Tidak memanggil geocoding sendiri. |
+| `LocationPicker` | `query`, `onQueryChange`, `onSearch`, `results: LocationResult[]`, `selected`, `onSelect(result)`, `loading`, `error`, `searched`, `attribution`. Presentasi hasil; tidak memanggil geocoding sendiri. Tidak membuat nested form. |
+| `LocationSearch` | `value: LocationResult \| null`, `onChange`, `disabled`, `error`, `limit` (default 5). Pencarian manual lewat API dengan area opsional, pembatalan stale response, retry dan cooldown 429. |
+| `ResourceFields` | `kind: supply/request/offer`, `value: ResourceFieldValues`, `onChange`, `errors`, `disabled`. Memuat reference-data dari API. |
+| `ResourceFieldControls` | Props `ResourceFields` ditambah `data: ReferenceData`; memakai response bersama milik halaman. |
 | `AgreementSummary` | `reference`, `title`, `provider`, `receiver`, `quantity`, `unit`, `sharingLabel`, `deadlineLabel`, `deadline`, `location`, `condition`. |
 | `TransactionFooter` | Tanpa props. |
 | `ReservationCard` | `reference`, `title`, `status`, `quantity`, `unit`, `counterpart`, `pickupTime`, `to`, `actions`. |
@@ -71,4 +74,16 @@ Komponen yang menggunakan `Link`/`NavLink` harus berada di dalam React Router. `
 
 Jalankan `npm run dev`, lalu buka `/components`. Route ini hanya tersedia dalam mode development dan dimuat secara lazy. Data contoh di `src/pages/ComponentCatalogPage.tsx` tidak melakukan transaksi atau pencarian lokasi aktif. Halaman modul tetap terpisah dari katalog.
 
-Katalog mencakup kontrol, feedback, kartu, filter sheet, keyboard tabs, konfirmasi modal, pemilihan hasil lokasi, navbar guest/login, dan ringkasan transaksi. Komponen menerima state dan callback; keberhasilan tampilan katalog bukan bukti integrasi backend.
+Katalog mencakup kontrol, feedback, kartu, filter sheet, keyboard tabs, konfirmasi modal, pemilihan hasil lokasi, navbar guest/login, dan ringkasan transaksi. Bagian `/components#reference-location` memakai API reference-data dan lokasi asli untuk contoh Supply/Request/Offer, tanpa mengirim transaksi. Contoh visual lainnya tetap fixture. Keberhasilan tampilan katalog bukan bukti integrasi backend.
+
+## Reference-data dan lokasi (SF-FE-04)
+
+`useReferenceData` di `resources/useReferenceData.ts` menyediakan loading/ready/error dan `retry()`. Pilihan datang dari server; tidak ada fallback kode kategori buatan. Saat jenis resource diubah, kategori, suitability, dan intended_use direset. Reference enum menerima string atau objek code/label; unit membawa aturan presisi dari server.
+
+Untuk form halaman yang perlu validasi saat submit, gunakan satu `useReferenceData()` bersama `ResourceFieldControls`. Simpan nilai memakai `ResourceFieldValues` dari `resources/resourceFields.ts`. Jalankan `validateResourceFields(value, reference.data, kind)` sebelum `resourceFieldsPayload(value, reference.data, kind)`; gabungkan hasilnya dengan field khusus halaman. Builder hanya menghasilkan bagian bersama, bukan payload transaksi lengkap.
+
+Quantity dan harga tetap string. `deadline` pada state adalah input lokal WIB; builder mengirim RFC3339 dengan `+07:00`, terlepas dari timezone browser. Saat edit, isi deadline menggunakan `toJakartaInput(timestampDariAPI)`.
+
+`LocationResult` memuat label, area, latitude, longitude, dan attribution. Simpan objek utuh dari `LocationSearch` agar label/koordinat tidak terpisah. Gunakan `locationPayload(selected)` untuk body write: hanya label, area, latitude, longitude; attribution tetap ditampilkan di UI. Edit query/area membatalkan pencarian lama dan menghapus pilihan sebelumnya.
+
+Halaman bisnis Supply/Request/Offer tetap diimplementasikan pada task modul masing-masing. Contoh integrasi dan tes di task ini membuktikan penggunaan komponen bersama, bukan penyelesaian halaman-halaman tersebut.

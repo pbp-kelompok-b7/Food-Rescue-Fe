@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { apiRequest, ApiError, setCsrfToken } from './api.ts'
 import { login, loginWithGoogle, logout, register } from './auth.ts'
+import { getReferenceData, locationPayload, searchLocations } from './reference.ts'
+import { decimalError, quantityError, toJakartaInput, toJakartaTimestamp } from '../components/resources/resourceFields.ts'
 
 test('API client', async (t) => {
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
@@ -73,6 +75,65 @@ test('API client', async (t) => {
     await assert.rejects(apiRequest('//example.com/'), TypeError)
     assert.equal(fetchMock.mock.callCount(), 0)
   })
+})
+
+test('reference-data preserves backend codes and normalizes enum labels', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ success: true, data: {
+    categories: [{ code: 'server_category', label: 'Kategori server', resource_type: 'PACKAGED_FOOD_SURPLUS' }],
+    units: [{ code: 'kg', label: 'Kilogram', allows_decimal: true, max_decimal_places: 3 }],
+    resource_types: ['PACKAGED_FOOD_SURPLUS'], suitabilities: ['HUMAN_CONSUMPTION'], modes: [{ code: 'DONATE', label: 'Donasi' }],
+  } }))
+  const data = await getReferenceData()
+  assert.equal(data.categories[0].code, 'server_category')
+  assert.deepEqual(data.resource_types, [{ code: 'PACKAGED_FOOD_SURPLUS', label: 'PACKAGED_FOOD_SURPLUS' }])
+  assert.equal(data.modes[0].label, 'Donasi')
+})
+
+test('location lookup sends only documented query parameters and preserves the selected location', async (t) => {
+  const location = { label: 'Kampus UI Depok', area: 'Depok', latitude: -6.36, longitude: 106.82, attribution: '© OpenStreetMap contributors' }
+  const controller = new AbortController()
+  t.mock.method(globalThis, 'fetch', async (url: string, options: RequestInit) => {
+    assert.equal(url, '/api/v1/locations/search/?q=Kampus+UI&limit=5&area=Depok')
+    assert.equal(options.signal, controller.signal)
+    assert.equal(options.credentials, 'include')
+    return Response.json({ success: true, data: { results: [location] } })
+  })
+  const response = await searchLocations({ q: ' Kampus UI ', area: ' Depok ' }, { signal: controller.signal })
+  assert.deepEqual(response.results, [location])
+  assert.deepEqual(locationPayload(response.results[0]), { label: location.label, area: location.area, latitude: -6.36, longitude: 106.82 })
+})
+
+test('invalid location queries never reach the server and invalid coordinates are rejected', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => Response.json({ success: true, data: { results: [{ label: 'Invalid', area: 'Depok', latitude: 91, longitude: 106, attribution: 'OSM' }] } }))
+  await assert.rejects(searchLocations({ q: 'ab' }), RangeError)
+  await assert.rejects(searchLocations({ q: 'Depok', limit: 11 }), RangeError)
+  assert.equal(fetchMock.mock.callCount(), 0)
+  await assert.rejects(searchLocations({ q: 'Depok' }), /Respons lokasi tidak valid/)
+})
+
+test('API errors retain Retry-After seconds and HTTP dates', async (t) => {
+  const response = (header: string) => Response.json({ success: false, errors: [{ field: null, code: 'location_rate_limited', message: 'Rate limited' }] }, { status: 429, headers: { 'Retry-After': header } })
+  t.mock.method(globalThis, 'fetch', async () => response('12'))
+  await assert.rejects(searchLocations({ q: 'Depok' }), (error: unknown) => error instanceof ApiError && error.retryAfter === 12)
+  t.mock.method(globalThis, 'fetch', async () => response(new Date(Date.now() + 10000).toUTCString()))
+  await assert.rejects(searchLocations({ q: 'Depok' }), (error: unknown) => error instanceof ApiError && error.retryAfter !== null && error.retryAfter >= 9 && error.retryAfter <= 10)
+})
+
+test('quantity precision, price strings and Jakarta timestamps avoid browser timezone conversion', () => {
+  const kg = { code: 'kg', label: 'Kilogram', allows_decimal: true, max_decimal_places: 3 }
+  const pcs = { code: 'pcs', label: 'Buah', allows_decimal: false, max_decimal_places: 0 }
+  assert.equal(quantityError('999999999.999', kg), undefined)
+  for (const value of ['1000000000', '1.0001', '0', '-1', '1e2', '1,5']) assert.ok(quantityError(value, kg))
+  assert.ok(quantityError('1.5', pcs))
+  assert.equal(quantityError('2', pcs), undefined)
+  assert.equal(decimalError('20000.01', 2), undefined)
+  assert.ok(decimalError('0.00', 2))
+  assert.ok(decimalError('20000.001', 2))
+  assert.equal(toJakartaTimestamp('2027-01-02T13:30'), '2027-01-02T13:30:00+07:00')
+  assert.equal(toJakartaInput('2027-01-02T06:30:00Z'), '2027-01-02T13:30')
+  assert.equal(toJakartaTimestamp('2027-02-30T12:00'), null)
+  assert.equal(toJakartaTimestamp('2027-01-02T24:00'), null)
+  assert.equal(toJakartaInput('2027-01-02T06:30'), '')
 })
 
 

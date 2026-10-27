@@ -32,6 +32,10 @@
   --color-notice: #445248;
   --color-organic: #f0f9f1;
   --color-harvest: #fff8eb;
+  /* Supply detail/form frames 42:886-889. */
+  --color-supply-canvas: #fbfaf7;
+  --color-supply-container: #e8f2e8;
+  --color-supply-input: #f5f7f2;
   --color-organic-container: #e9eeeb;
   --color-on-organic: #34493c;
   --color-sell: #29332c;
@@ -92,6 +96,10 @@
 @layer components {
   .landing-container { @apply mx-auto w-full max-w-312 px-6; }
   .landing-heading { @apply font-brand text-xl leading-7.5 font-semibold lg:text-[22px]; }
+  .supply-container { @apply mx-auto w-full max-w-320 px-5 py-6 nav:px-12 nav:py-12; }
+  .supply-heading { @apply m-0 font-brand text-xl leading-tight font-semibold nav:text-[32px]; }
+  .supply-caption { @apply m-0 text-[11px] font-semibold text-primary; }
+  .supply-form .fr-control { @apply border-transparent bg-supply-input aria-invalid:border-danger; }
 
   .fr-button {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md

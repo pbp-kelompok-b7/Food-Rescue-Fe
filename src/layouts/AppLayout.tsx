@@ -15,6 +15,7 @@ export default function AppLayout() {
   const landing = pathname === '/'
   const authPage = pathname === '/login' || pathname === '/register'
   const profilePage = pathname === '/profile'
+  const supplyPage = pathname === '/supply' || /^\/supply\/[^/]+(?:\/edit)?$/.test(pathname)
   const navigation = useNavigation()
   const auth = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -64,8 +65,7 @@ export default function AppLayout() {
     <>
       <a className="fixed -top-25 left-4 z-10 bg-surface p-3 focus:top-3" href="#main-content">Langsung ke konten</a>
       <Navbar key={`${pathname}${search}:${auth.status}`} authPage={authPage || profilePage} user={user ? { name: user.display_name || user.name || user.email || 'Akun saya' } : null} accountLinks={accountLinks} sessionStatus={auth.status} onRetrySession={() => auth.refresh()} onLogout={handleLogout} loggingOut={loggingOut} />
-      <main id="main-content" className={authPage ? `flex w-full flex-col items-center justify-center bg-surface px-6 py-12 focus:outline-none nav:px-20 nav:py-16 ${pathname === '/login' ? 'min-h-[771px] nav:min-h-[685px]' : 'nav:min-h-[939px]'}` : profilePage ? 'w-full flex-1 px-6 pt-8 pb-12 focus:outline-none nav:px-16 nav:pt-10' : landing ? 'w-full flex-1 focus:outline-none' : 'mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16'} tabIndex={-1} aria-busy={navigation.state !== 'idle'}>
-        {navigation.state !== 'idle' && <p role="status">Memuat halaman...</p>}
+      <main id="main-content" className={supplyPage ? 'w-full flex-1 bg-supply-canvas focus:outline-none' : authPage ? `flex w-full flex-col items-center justify-center bg-surface px-6 py-12 focus:outline-none nav:px-20 nav:py-16 ${pathname === '/login' ? 'min-h-[771px] nav:min-h-[685px]' : 'nav:min-h-[939px]'}` : profilePage ? 'w-full flex-1 px-6 pt-8 pb-12 focus:outline-none nav:px-16 nav:pt-10' : landing ? 'w-full flex-1 focus:outline-none' : 'mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16'} tabIndex={-1} aria-busy={navigation.state !== 'idle'}>
         {logoutError && <Alert tone="danger" title="Gagal keluar"><p>Sesi belum diakhiri. Coba lagi.</p><Button variant="secondary" onClick={handleLogout} loading={loggingOut}>Coba keluar lagi</Button></Alert>}
         <Outlet />
       </main>
