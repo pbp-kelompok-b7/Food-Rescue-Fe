@@ -42,12 +42,17 @@ let detailStatus: number
 let referenceStatus: number
 let csrfStatus: number
 let listResponse: ((url: URL) => Promise<Response>) | undefined
+let hasHistory = false
+let removeStatus = 204
+let actionWait: Promise<void> | undefined
 let requests: { url: URL; method: string; body: Record<string, unknown> | null; csrf: string | null; credentials: RequestCredentials | undefined }[]
 const ok = (data: unknown) => Response.json({ success: true, data })
 const failed = (status: number, code = 'server_error', field: string | null = null) => Response.json({ success: false, message: 'Internal secret should not be rendered', errors: [{ field, code, message: field ? 'Jumlah ditolak server.' : 'Secret traceback' }] }, { status })
 async function settle() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) }) }
 async function mount(path = '/supply', userId: number | null = null, referenceResponseStatus = 200) {
-  listing = structuredClone(fixture); writeStatus = 200; writeCode = 'invalid'; detailStatus = 200; referenceStatus = referenceResponseStatus; csrfStatus = 200; listResponse = undefined; requests = []
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value() { this.open = true } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value() { this.open = false } })
+  listing = structuredClone(fixture); writeStatus = 200; writeCode = 'invalid'; detailStatus = 200; referenceStatus = referenceResponseStatus; csrfStatus = 200; listResponse = undefined; requests = []; hasHistory = false; removeStatus = 204; actionWait = undefined
   vi.stubGlobal('fetch', vi.fn(async (path: string, options: RequestInit & { headers: Headers }) => {
     const url = new URL(path, 'http://localhost')
     const method = options.method || 'GET'
@@ -59,6 +64,19 @@ async function mount(path = '/supply', userId: number | null = null, referenceRe
     if (url.pathname.endsWith('locations/search/')) return ok({ results: [{ ...pickup, attribution: '© OpenStreetMap contributors' }] })
     if (url.pathname.endsWith('listings/') && method === 'GET') return listResponse ? listResponse(url) : ok({ count: 21, next: '/api/v1/listings/?page=2', previous: null, results: [listing] })
     if (/\/listings\/(?:\d+)\/$/.test(url.pathname) && method === 'GET') return detailStatus === 200 ? ok({ ...listing, whatsapp_number: '+6281212341234', email: 'hidden@example.test' }) : failed(detailStatus)
+    if (url.pathname.endsWith('/close/') && method === 'POST') {
+      if (actionWait) await actionWait
+      if (writeStatus >= 400) return failed(writeStatus, writeCode, writeStatus === 400 ? 'reason' : null)
+      listing = { ...listing, status: 'CLOSED', version: listing.version + 1 }
+      return ok(listing)
+    }
+    if (method === 'DELETE') {
+      if (actionWait) await actionWait
+      if (removeStatus !== 204) return failed(removeStatus, writeCode)
+      if (hasHistory) listing = { ...listing, status: ['AVAILABLE', 'RESERVED'].includes(listing.status) ? 'CLOSED' : listing.status, archived_at: '2026-10-28T00:00:00Z' }
+      else listResponse = async () => ok({ count: 0, next: null, previous: null, results: [] })
+      return new Response(null, { status: 204 })
+    }
     if (['POST', 'PATCH'].includes(method)) {
       if (writeStatus >= 400) return failed(writeStatus, writeCode, writeStatus === 400 ? 'quantity_total' : null)
       listing = { ...listing, ...body }
@@ -71,7 +89,7 @@ async function mount(path = '/supply', userId: number | null = null, referenceRe
     element: <AuthProvider><Outlet /></AuthProvider>, children: [
       { path: '/supply', element: <BrowseSupply /> }, { path: '/supply/:id', element: <SupplyDetail /> },
       { element: <RequireAuth />, children: [
-        { path: '/supply/new', element: <SupplyForm /> }, { path: '/supply/:id/edit', element: <EditSupply /> }, { path: '/supply/:id/claim', element: <p>Claim task</p> },
+        { path: '/my/supply', element: <BrowseSupply mine /> }, { path: '/supply/new', element: <SupplyForm /> }, { path: '/supply/:id/edit', element: <EditSupply /> }, { path: '/supply/:id/claim', element: <p>Claim task</p> },
       ] },
       { path: '/login', element: <h1>Masuk</h1> },
     ],
@@ -295,4 +313,159 @@ it('preserves terminal deadlines on PATCH, validates new deadlines, and keeps de
   expect(validateSupply(values, references, expired)).toHaveProperty('deadline')
   values.fields = { ...values.fields, unit: 'kg', quantity: '999999999.999' }
   expect(supplyPayload(values).quantity_total).toBe('999999999.999')
+})
+
+
+it('loads owner history with fixed scope=mine, status and pagination including archived entries', async () => {
+  await mount('/my/supply?scope=public&status=CLOSED&page=2', 1)
+  const request = requests.find(request => request.url.pathname.endsWith('listings/'))!
+  expect(request.url.searchParams.get('scope')).toBe('mine')
+  expect(request.url.searchParams.get('status')).toBe('CLOSED')
+  expect(request.url.searchParams.get('page')).toBe('2')
+  expect(container.textContent).toContain('Supply saya')
+  expect(container.textContent).toContain('Dialokasikan')
+  expect(container.textContent).toContain('Selesai diambil')
+  await select('[aria-label="Status supply"]', 'EXPIRED')
+  expect(router.state.location.search).not.toContain('page=')
+  expect(requests.at(-1)!.url.searchParams.get('scope')).toBe('mine')
+  expect(requests.at(-1)!.url.searchParams.get('status')).toBe('EXPIRED')
+  listing = { ...listing, archived_at: '2026-10-01T00:00:00Z', status: 'CLOSED' }
+  await select('[aria-label="Status supply"]', 'CLOSED')
+  expect(container.textContent).toContain('Diarsipkan')
+  expect(container.querySelector('a[href="/supply/7"]')).not.toBeNull()
+  expect(container.textContent).not.toContain('Hapus supply')
+})
+it('guards owner history and hides management actions for nonowners', async () => {
+  await mount('/my/supply', null)
+  expect(router.state.location.pathname).toBe('/login')
+  expect(router.state.location.state).toEqual({ from: '/my/supply' })
+  expect(requests.some(request => request.url.pathname.endsWith('listings/'))).toBe(false)
+})
+it('does not render destructive controls to nonowners in detail', async () => {
+  await mount('/supply/7', 2)
+  expect(container.textContent).not.toContain('Hapus supply')
+  expect(container.textContent).not.toContain('Tutup supply')
+})
+it('validates close reason, cancels without writes and sends trimmed JSON with CSRF', async () => {
+  await mount('/supply/7', 1)
+  await click('Tutup supply')
+  expect(container.textContent).toContain('pengajuan pending dibatalkan')
+  expect(container.textContent).toContain('Reservasi yang sudah diterima tetap berjalan')
+  await click('Ya, tutup supply')
+  expect(container.textContent).toContain('Isi alasan penutupan')
+  expect(writes()).toHaveLength(0)
+  await click('Batal')
+  expect(writes()).toHaveLength(0)
+  await click('Tutup supply')
+  await input('[name="close_reason"]', '  Jadwal berubah.  ')
+  await click('Ya, tutup supply'); await settle()
+  const request = writes().find(request => request.url.pathname.endsWith('/close/'))!
+  expect(request.body).toEqual({ reason: 'Jadwal berubah.' })
+  expect(request.csrf).toBe('supply-token')
+  expect(request.credentials).toBe('include')
+  expect(container.textContent).toContain('Supply berhasil ditutup')
+  expect(container.textContent).toContain('Ditutup')
+  expect([...container.querySelectorAll('button')].find(button => button.textContent === 'Tutup supply')!.disabled).toBe(true)
+  expect(listing.quantity_allocated).toBe('3.000')
+})
+it.each(['CLOSED', 'EXPIRED', 'COMPLETED'])('disables close for terminal %s and keeps historical details accessible', async status => {
+  await mount('/my/supply', 1)
+  listing.status = status
+  await select('[aria-label="Status supply"]', status)
+  expect([...container.querySelectorAll('button')].find(button => button.textContent === 'Tutup supply')!.disabled).toBe(true)
+  expect(container.querySelector('a[href="/supply/7"]')).not.toBeNull()
+  expect(container.textContent).toContain('Hapus supply')
+})
+it('does not close an elapsed deadline or fully completed supply even with stale AVAILABLE status', async () => {
+  await mount('/my/supply', 1)
+  listing.available_until = '2020-01-01T00:00:00Z'
+  await select('[aria-label="Status supply"]', 'AVAILABLE')
+  expect([...container.querySelectorAll('button')].find(button => button.textContent === 'Tutup supply')!.disabled).toBe(true)
+  listing.available_until = fixture.available_until; listing.quantity_completed = listing.quantity_total
+  await select('[aria-label="Status supply"]', '')
+  expect([...container.querySelectorAll('button')].find(button => button.textContent === 'Tutup supply')!.disabled).toBe(true)
+})
+it.each([400, 403, 404, 409, 500, 501])('retains close reason and allows recovery after %s without false success', async status => {
+  await mount('/supply/7', 1); writeStatus = status; writeCode = status === 409 ? 'invalid_transition' : 'csrf_failed'
+  await click('Tutup supply'); await input('[name="close_reason"]', 'Tetap disimpan')
+  await click('Ya, tutup supply'); await settle()
+  expect(container.textContent).toContain('Perubahan belum dapat dikonfirmasi')
+  expect(container.textContent).not.toContain('Supply berhasil ditutup')
+  expect(container.textContent).not.toContain('Secret traceback')
+  expect(container.querySelector<HTMLTextAreaElement>('[name="close_reason"]')!.value).toBe('Tetap disimpan')
+  expect(container.querySelector<HTMLDialogElement>('dialog')!.open).toBe(true)
+  writeStatus = 200
+  await click('Ya, tutup supply'); await settle()
+  expect(container.textContent).toContain('Supply berhasil ditutup')
+})
+it('prevents duplicate submissions and dismissal while close is pending', async () => {
+  await mount('/supply/7', 1)
+  let release!: () => void
+  actionWait = new Promise<void>(resolve => { release = resolve })
+  await click('Tutup supply'); await input('[name="close_reason"]', 'Selesai')
+  await click('Ya, tutup supply')
+  const confirm = [...container.querySelectorAll<HTMLButtonElement>('dialog button')].find(button => button.textContent?.includes('Ya, tutup'))!
+  expect(confirm.disabled).toBe(true)
+  expect([...container.querySelectorAll<HTMLButtonElement>('dialog button')].find(button => button.textContent === 'Batal')!.disabled).toBe(true)
+  await act(async () => confirm.click())
+  expect(writes().filter(request => request.url.pathname.endsWith('/close/'))).toHaveLength(1)
+  release(); await settle()
+  expect(container.textContent).toContain('Supply berhasil ditutup')
+})
+it.each([false, true])('handles empty DELETE 204 and refreshes owner history, transaction history=%s', async history => {
+  await mount('/my/supply', 1); hasHistory = history
+  await click('Hapus supply')
+  expect(container.textContent).toContain('termasuk yang ditolak atau dibatalkan')
+  expect(container.textContent).toContain('jadwal pickup tetap berjalan')
+  await click('Ya, hapus atau arsipkan'); await settle()
+  const request = requests.find(request => request.method === 'DELETE')!
+  expect(request.body).toBeNull()
+  expect(request.csrf).toBe('supply-token')
+  expect(router.state.location.pathname).toBe('/my/supply')
+  expect(container.textContent).toContain('Supply berhasil dihapus atau diarsipkan')
+  if (history) {
+    expect(container.textContent).toContain('Diarsipkan')
+    expect(container.querySelector('a[href="/supply/7"]')).not.toBeNull()
+  } else expect(container.textContent).toContain('Belum ada supply pada pilihan ini')
+})
+it.each(['AVAILABLE', 'RESERVED', 'CLOSED', 'EXPIRED', 'COMPLETED'])('permits server-decided deletion or archival for %s', async status => {
+  await mount('/my/supply', 1); hasHistory = true; listing.status = status
+  await select('[aria-label="Status supply"]', status)
+  await click('Hapus supply'); await click('Ya, hapus atau arsipkan'); await settle()
+  expect(requests.filter(request => request.method === 'DELETE')).toHaveLength(1)
+  expect(listing.archived_at).not.toBeNull()
+  if (['CLOSED', 'EXPIRED', 'COMPLETED'].includes(status)) expect(listing.status).toBe(status)
+})
+it('keeps a failed delete dialog open and does not remove the listing optimistically', async () => {
+  await mount('/my/supply', 1); removeStatus = 500
+  await click('Hapus supply'); await click('Ya, hapus atau arsipkan'); await settle()
+  expect(container.textContent).toContain('Perubahan belum dapat dikonfirmasi')
+  expect(container.textContent).toContain(fixture.title)
+  expect(container.textContent).not.toContain('Supply berhasil dihapus')
+  removeStatus = 204
+  await click('Ya, hapus atau arsipkan'); await settle()
+  expect(container.textContent).toContain('Supply berhasil dihapus atau diarsipkan')
+})
+it('redirects expired lifecycle sessions without showing success', async () => {
+  await mount('/supply/7', 1); writeStatus = 401
+  await click('Tutup supply'); await input('[name="close_reason"]', 'Alasan')
+  await click('Ya, tutup supply'); await settle()
+  expect(router.state.location.pathname).toBe('/login')
+  expect(router.state.location.state).toEqual({ from: '/my/supply' })
+})
+it('does not issue DELETE if CSRF bootstrap fails', async () => {
+  await mount('/my/supply', 1); csrfStatus = 403
+  await click('Hapus supply'); await click('Ya, hapus atau arsipkan'); await settle()
+  expect(requests.filter(request => request.method === 'DELETE')).toHaveLength(0)
+  expect(container.textContent).toContain('Verifikasi keamanan gagal')
+})
+it('renders owner-list failures and recovers without confusing them with empty history', async () => {
+  await mount('/my/supply', 1)
+  listResponse = async () => failed(501)
+  await select('[aria-label="Status supply"]', 'CLOSED')
+  expect(container.textContent).toContain('Layanan supply belum tersedia')
+  expect(container.textContent).not.toContain('Belum ada supply pada pilihan ini')
+  listResponse = async () => ok({ count: 0, next: null, previous: null, results: [] })
+  await click('Coba lagi'); await settle()
+  expect(container.textContent).toContain('Belum ada supply pada pilihan ini')
 })

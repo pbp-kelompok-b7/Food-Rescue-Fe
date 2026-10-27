@@ -9,6 +9,8 @@ export default function useListing(id: string) {
     setState({ key: id, status: 'loading', data: null })
     setAttempt(value => value + 1)
   }, [id])
+  const refresh = useCallback(() => setAttempt(value => value + 1), [])
+  const update = useCallback((data: Listing) => setState({ key: id, status: 'ready', data }), [id])
   useEffect(() => {
     const controller = new AbortController()
     Promise.resolve().then(() => listingsApi.detail(id, { signal: controller.signal })).then(data => {
@@ -18,5 +20,5 @@ export default function useListing(id: string) {
     })
     return () => controller.abort()
   }, [id, attempt])
-  return { ...(state.key === id ? state : { status: 'loading' as const, data: null }), retry }
+  return { ...(state.key === id ? state : { status: 'loading' as const, data: null }), retry, refresh, update }
 }
