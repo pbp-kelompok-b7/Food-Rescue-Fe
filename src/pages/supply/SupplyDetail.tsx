@@ -97,6 +97,9 @@ export function SupplyActions({ listing, onChanged }: { listing: Listing; onChan
         navigate('/login', { replace: true, state: { from: '/my/supply' } })
       } else {
         setError(failure)
+        if (action === 'close' && failure instanceof ApiError && failure.status === 400) {
+          setReasonError(failure.errors.filter(item => item.field === 'reason').map(item => item.message).join(' '))
+        }
         if (failure instanceof ApiError && [403, 404, 409].includes(failure.status)) onChanged('')
       }
     } finally { inFlight.current = false; setPending(false) }

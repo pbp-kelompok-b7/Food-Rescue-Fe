@@ -47,7 +47,7 @@ let removeStatus = 204
 let actionWait: Promise<void> | undefined
 let requests: { url: URL; method: string; body: Record<string, unknown> | null; csrf: string | null; credentials: RequestCredentials | undefined }[]
 const ok = (data: unknown) => Response.json({ success: true, data })
-const failed = (status: number, code = 'server_error', field: string | null = null) => Response.json({ success: false, message: 'Internal secret should not be rendered', errors: [{ field, code, message: field ? 'Jumlah ditolak server.' : 'Secret traceback' }] }, { status })
+const failed = (status: number, code = 'server_error', field: string | null = null) => Response.json({ success: false, message: 'Internal secret should not be rendered', errors: [{ field, code, message: field === 'reason' ? 'Alasan ditolak server.' : field ? 'Jumlah ditolak server.' : 'Secret traceback' }] }, { status })
 async function settle() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) }) }
 async function mount(path = '/supply', userId: number | null = null, referenceResponseStatus = 200) {
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value() { this.open = true } })
@@ -411,6 +411,30 @@ it('prevents duplicate submissions and dismissal while close is pending', async 
   expect(writes().filter(request => request.url.pathname.endsWith('/close/'))).toHaveLength(1)
   release(); await settle()
   expect(container.textContent).toContain('Supply berhasil ditutup')
+})
+it('shows server validation on the close reason field without clearing the draft', async () => {
+  await mount('/supply/7', 1); writeStatus = 400
+  await click('Tutup supply'); await input('[name="close_reason"]', 'Alasan tersimpan')
+  await click('Ya, tutup supply'); await settle()
+  const reason = container.querySelector<HTMLTextAreaElement>('[name="close_reason"]')!
+  expect(reason.value).toBe('Alasan tersimpan')
+  expect(reason.getAttribute('aria-invalid')).toBe('true')
+  expect(container.textContent).toContain('Alasan ditolak server.')
+  expect(container.textContent).not.toContain('Supply berhasil ditutup')
+})
+it('invalidates owner history after confirmed close while the refreshed list is pending', async () => {
+  await mount('/my/supply', 1)
+  let release!: (response: Response) => void
+  listResponse = () => new Promise(resolve => { release = resolve })
+  await click('Tutup supply'); await input('[name="close_reason"]', 'Tidak tersedia lagi')
+  await click('Ya, tutup supply'); await settle()
+  expect(container.textContent).toContain('Supply berhasil ditutup')
+  expect(container.textContent).toContain('Memuat supply')
+  expect(container.querySelector('a[href="/supply/7/edit"]')).toBeNull()
+  await act(async () => release(ok({ count: 1, next: null, previous: null, results: [listing] })))
+  await settle()
+  expect(container.textContent).toContain('Ditutup')
+  expect(container.textContent).not.toContain('Memuat supply')
 })
 it.each([false, true])('handles empty DELETE 204 and refreshes owner history, transaction history=%s', async history => {
   await mount('/my/supply', 1); hasHistory = history

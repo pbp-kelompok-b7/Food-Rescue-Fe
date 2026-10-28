@@ -89,7 +89,13 @@ export default function BrowseSupply({ mine = false }: { mine?: boolean }) {
   const error = result.key === key ? result.error : undefined
   const pending = !data && !error && !invalidQuery
   function retry() { setResult({ key }); setAttempt(value => value + 1) }
-  function changed(message: string) { setNotice(message); setAttempt(value => value + 1) }
+  function changed(message: string) {
+    setNotice(message)
+    // A confirmed write invalidates the old status/counters while the server
+    // reloads history. Keep the current dialog/draft on a failed write.
+    if (message) setResult({ key })
+    setAttempt(value => value + 1)
+  }
   const filterControls = <div className="flex flex-col gap-3">
     {reference.status === 'loading' && <p role="status">Memuat pilihan filter…</p>}
     {reference.status === 'error' && <><p className="text-sm text-muted">Pilihan filter belum tersedia. Pencarian tetap dapat digunakan.</p><Button variant="secondary" onClick={reference.retry}>Muat pilihan filter</Button></>}
