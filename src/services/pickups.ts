@@ -13,6 +13,9 @@ export interface PickupLocation {
 export interface Pickup {
   id: ResourceId
   reservation_id: ResourceId
+  created_at?: string
+  updated_at?: string
+  version?: number
   scheduled_at: string
   location: PickupLocation
   instructions: string | null
@@ -20,6 +23,13 @@ export interface Pickup {
   completed_at: string | null
   no_show_at: string | null
   cancelled_at?: string | null
+}
+
+export interface PickupPage {
+  count: number
+  next: string | null
+  previous: string | null
+  results: Pickup[]
 }
 
 export interface PickupScheduleWrite {
@@ -33,9 +43,13 @@ export const pickupsApi = {
     await bootstrapCsrf()
     return apiRequest<Pickup>(`reservations/${encodeURIComponent(id)}/pickup/`, { method: 'POST', body })
   },
-  list: (params: QueryParams = {}) => apiRequest(`pickups/?${new URLSearchParams(params)}`),
+  list: (params: QueryParams = {}, options: ApiRequestOptions = {}) =>
+    apiRequest<PickupPage>(`pickups/?${new URLSearchParams(params)}`, options),
   detail: (id: ResourceId, options: ApiRequestOptions = {}) => apiRequest(path(id), options),
-  update: (id: ResourceId, body: ApiPayload) => apiRequest(path(id), { method: 'PATCH', body }),
+  update: async (id: ResourceId, body: ApiPayload) => {
+    await bootstrapCsrf()
+    return apiRequest<Pickup>(path(id), { method: 'PATCH', body })
+  },
   complete: (id: ResourceId, body: ApiPayload) => apiRequest(`${path(id)}complete/`, { method: 'POST', body }),
   noShow: (id: ResourceId, body: ApiPayload) => apiRequest(`${path(id)}no-show/`, { method: 'POST', body }),
 }

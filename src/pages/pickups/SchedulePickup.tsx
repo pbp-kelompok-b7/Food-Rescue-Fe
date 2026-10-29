@@ -25,6 +25,8 @@ import {
   type ReservationForPickup,
 } from './scheduleModel.ts'
 
+const secondaryActionClass = 'fr-button border border-outline bg-surface text-ink shadow-none hover:not-disabled:bg-organic'
+
 export default function SchedulePickup() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
@@ -346,7 +348,7 @@ export default function SchedulePickup() {
             </Button>
             {receiverWhatsapp && (
               <a
-                className="fr-button border border-outline bg-surface text-ink shadow-none hover:not-disabled:bg-organic"
+                className={secondaryActionClass}
                 href={receiverWhatsapp}
                 target="_blank"
                 rel="noreferrer"

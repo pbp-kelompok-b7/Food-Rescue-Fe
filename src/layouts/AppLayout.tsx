@@ -16,7 +16,7 @@ export default function AppLayout() {
   const authPage = pathname === '/login' || pathname === '/register'
   const profilePage = pathname === '/profile'
   const supplyPage = pathname === '/supply' || /^\/supply\/[^/]+(?:\/edit)?$/.test(pathname)
-  const pickupFlow = /^\/(?:reservations\/[^/]+\/pickup|pickups\/[^/]+)$/.test(pathname)
+  const pickupFlow = /^\/(?:reservations\/[^/]+\/pickup|pickups(?:\/[^/]+(?:\/edit)?)?)$/.test(pathname)
   const navigation = useNavigation()
   const auth = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)

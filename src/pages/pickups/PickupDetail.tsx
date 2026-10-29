@@ -14,6 +14,8 @@ import { quantityText, supplyLabel } from '../supply/model.ts'
 import type { ReservationForPickup } from './scheduleModel.ts'
 import { jakartaDateTime, pickupStatusLabel, reservationReference } from './scheduleModel.ts'
 
+const secondaryActionClass = 'fr-button border border-outline bg-surface text-ink shadow-none hover:not-disabled:bg-organic'
+
 export default function PickupDetail() {
   const { id = '' } = useParams()
   const auth = useAuth()
@@ -21,10 +23,12 @@ export default function PickupDetail() {
   const [pickup, setPickup] = useState<Pickup | null>(null)
   const [reservation, setReservation] = useState<ReservationForPickup | null>(null)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  const [now, setNow] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [confirming, setConfirming] = useState(false)
+  const [receiptOpen, setReceiptOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -41,6 +45,7 @@ export default function PickupDetail() {
         setReservation(relatedReservation)
         setError(null)
         setLoadedFor(id)
+        setNow(Date.now())
       }
     }).catch(failure => {
       if (controller.signal.aborted) return
@@ -62,6 +67,7 @@ export default function PickupDetail() {
     try {
       const updated = await pickupsApi.complete(pickup.id, {}) as Pickup
       setPickup(updated)
+      setReceiptOpen(false)
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) clearSession()
       setActionError(
@@ -135,16 +141,27 @@ export default function PickupDetail() {
   const isProvider = reservation.provider?.id === auth.user?.id
   const roleLabel = isReceiver ? 'Anda receiver' : isProvider ? 'Anda provider' : 'Peserta reservasi'
   const otherWhatsapp =
-    reservation.counterparty_contact?.whatsapp_url ||
-    (reservation.counterparty_contact?.whatsapp_number
+    reservation.status === 'ACCEPTED' && (
+      reservation.counterparty_contact?.whatsapp_url ||
+      (reservation.counterparty_contact?.whatsapp_number
       ? `https://wa.me/${reservation.counterparty_contact.whatsapp_number.replace(/\D/g, '')}`
       : null)
+    )
   const mapUrl =
     `https://www.openstreetmap.org/?mlat=${pickup.location.latitude}` +
     `&mlon=${pickup.location.longitude}#map=16/${pickup.location.latitude}/${pickup.location.longitude}`
   const isCancelled = pickup.status === 'CANCELLED'
   const canConfirm = isReceiver && pickup.status === 'SCHEDULED'
   const canCancel = (isReceiver || isProvider) && pickup.status === 'SCHEDULED'
+  const deadline = snapshot?.resource_deadline
+  const deadlineTimestamp = deadline ? Date.parse(deadline) : NaN
+  const canEditInstructions =
+    isProvider &&
+    reservation.status === 'ACCEPTED' &&
+    pickup.status === 'SCHEDULED' &&
+    Number.isFinite(deadlineTimestamp) &&
+    now !== null &&
+    deadlineTimestamp > now
   const resourceType = snapshot?.resource_type || snapshot?.category
   const sharingLabel = snapshot?.mode ? supplyLabel(snapshot.mode) : undefined
   const pickupQuantity = snapshot?.quantity != null
@@ -227,11 +244,6 @@ export default function PickupDetail() {
             </dl>
           </div>
 
-          {actionError && (
-            <Alert tone="danger" title="Konfirmasi belum tersimpan">
-              {actionError}
-            </Alert>
-          )}
           {isCancelled && (
             <div className="rounded-md bg-organic p-4">
               <h3 className="m-0 text-base font-bold">Reservasi dibatalkan</h3>
@@ -241,36 +253,40 @@ export default function PickupDetail() {
             </div>
           )}
           {canConfirm && (
-            <Button onClick={confirmReceipt} loading={confirming} disabled={confirming}>
+            <Button
+              onClick={() => {
+                setActionError(null)
+                setReceiptOpen(true)
+              }}
+              disabled={confirming}
+            >
               Konfirmasi penerimaan
             </Button>
           )}
           {otherWhatsapp ? (
             <a
-              className="fr-button border border-outline bg-surface text-ink shadow-none hover:not-disabled:bg-organic"
+              className={`${secondaryActionClass} w-full`}
               href={otherWhatsapp}
               target="_blank"
               rel="noreferrer"
             >
               Hubungi {isReceiver ? 'provider' : 'receiver'}
             </a>
-          ) : (
-            <Button
-              variant="secondary"
-              disabled
-              title="Nomor WhatsApp belum tersedia. Perbarui kontak melalui profil."
-            >
-              Hubungi {isReceiver ? 'provider' : 'receiver'}
-            </Button>
-          )}
+          ) : null}
           <a
-            className="fr-button border border-outline bg-surface text-ink shadow-none hover:not-disabled:bg-organic"
+            className={`${secondaryActionClass} w-full`}
             href={mapUrl}
             target="_blank"
             rel="noreferrer"
           >
             Buka lokasi
           </a>
+          <Link
+            className={`${secondaryActionClass} w-full`}
+            to={`/reservations/${encodeURIComponent(String(reservation.id))}`}
+          >
+            Lihat reservasi
+          </Link>
           {canConfirm && (
             <p className="m-0 text-xs text-muted">
               {pickupQuantity
@@ -278,21 +294,49 @@ export default function PickupDetail() {
                 : 'Konfirmasi setelah seluruh resource diterima.'}
             </p>
           )}
-          {canCancel && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="self-center"
-              onClick={() => {
-                setCancelError(null)
-                setCancelOpen(true)
-              }}
-            >
-              Batalkan reservasi
-            </Button>
-          )}
+          <div className="flex flex-col gap-3">
+            {canEditInstructions && (
+              <Link
+                className={`${secondaryActionClass} w-full`}
+                to={`/pickups/${encodeURIComponent(String(pickup.id))}/edit`}
+              >
+                Edit instruksi pickup
+              </Link>
+            )}
+            {canCancel && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mt-1 w-full font-medium"
+                onClick={() => {
+                  setCancelError(null)
+                  setCancelOpen(true)
+                }}
+              >
+                Batalkan reservasi
+              </Button>
+            )}
+          </div>
         </section>
       </div>
+      <ConfirmDialog
+        open={receiptOpen}
+        title="Konfirmasi penerimaan?"
+        confirmLabel="Ya, saya sudah menerima"
+        loading={confirming}
+        stacked
+        onCancel={() => setReceiptOpen(false)}
+        onConfirm={confirmReceipt}
+      >
+        {actionError && (
+          <Alert tone="danger" title="Konfirmasi belum tersimpan">
+            {actionError}
+          </Alert>
+        )}
+        <p className="m-0">
+          Konfirmasi setelah seluruh {pickupQuantity || 'resource'} diterima. Pickup akan ditandai selesai.
+        </p>
+      </ConfirmDialog>
       <ConfirmDialog
         open={cancelOpen}
         title="Batalkan reservasi?"
