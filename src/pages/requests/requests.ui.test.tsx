@@ -8,6 +8,12 @@ import { acceptingOffers, budgetText } from './model.ts'
 import type { ResourceRequest } from '../../services/requests.ts'
 import BrowseRequests from './BrowseRequests.tsx'
 import RequestDetail from './RequestDetail.tsx'
+import RequestForm from './RequestForm.tsx'
+import EditRequest from './EditRequest.tsx'
+import RequireAuth from '../../auth/RequireAuth.tsx'
+import { setCsrfToken } from '../../services/api.ts'
+import { requestChanges, requestPayload, requestValues, validateRequest } from './model.ts'
+import { getReferenceData } from '../../services/reference.ts'
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 const food = 'PACKAGED_FOOD_SURPLUS'
@@ -56,15 +62,31 @@ let userId: number | null
 let listResults: ResourceRequest[]
 let listHandler: ((url: URL) => Promise<Response>) | undefined
 let detailHandler: (() => Promise<Response>) | undefined
-let calls: { url: URL; method: string; signal: AbortSignal | null | undefined; credentials: RequestCredentials | undefined }[]
+let writeStatus: number
+let writeCode: string
+let writeField: string | null
+let csrfStatus: number
+let writeHandler: (() => Promise<Response>) | undefined
+let calls: { url: URL; method: string; signal: AbortSignal | null | undefined; credentials: RequestCredentials | undefined; body: Record<string, unknown> | null; csrf: string | null }[]
 function SessionControls() { const auth = useAuth(); return <><button onClick={auth.clearSession}>Logout test</button><Outlet /></> }
 async function settle() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) }) }
-async function mount(path = '/requests', viewer: number | null = null, referenceResponseStatus = 200) {
+async function mount(path = '/requests', viewer: number | null = null, referenceResponseStatus = 200, staff = false) {
   request = structuredClone(fixture); detailStatus = 200; listStatus = 200; referenceStatus = referenceResponseStatus; sessionStatus = 200; userId = viewer; listResults = [request]; calls = []; listHandler = undefined; detailHandler = undefined
+  writeStatus = 200; writeCode = 'validation_error'; writeField = null; csrfStatus = 200; writeHandler = undefined
   vi.stubGlobal('fetch', vi.fn(async (path: string, options: RequestInit) => {
     const url = new URL(path, 'http://localhost')
-    calls.push({ url, method: options.method || 'GET', signal: options.signal, credentials: options.credentials })
-    if (url.pathname.endsWith('session/')) return sessionStatus === 200 ? ok({ authenticated: userId !== null, user: userId === null ? null : { id: userId, display_name: 'Viewer' } }) : failure(sessionStatus)
+    const method = options.method || 'GET'
+    const body = options.body ? JSON.parse(String(options.body)) : null
+    calls.push({ url, method, signal: options.signal, credentials: options.credentials, body, csrf: new Headers(options.headers).get('X-CSRFToken') })
+    if (url.pathname.endsWith('session/')) return sessionStatus === 200 ? ok({ authenticated: userId !== null, user: userId === null ? null : { id: userId, display_name: 'Viewer', is_admin: staff } }) : failure(sessionStatus)
+    if (url.pathname.endsWith('csrf/')) return csrfStatus === 200 ? ok({ csrf_token: 'request-token' }) : failure(csrfStatus, 'csrf_failed')
+    if (url.pathname.endsWith('locations/search/')) return ok({ results: [{ ...fixture.location, attribution: '© OpenStreetMap contributors' }] })
+    if (['POST', 'PATCH'].includes(method)) {
+      if (writeHandler) return writeHandler()
+      if (writeStatus >= 400) return Response.json({ success: false, message: 'Secret traceback', errors: [{ field: writeField, code: writeCode, message: writeField ? 'Informasi ditolak server.' : 'Private backend details' }] }, { status: writeStatus })
+      request = { ...request, ...body, id: method === 'POST' ? 8 : request.id, version: request.version + 1 }
+      return ok(request)
+    }
     if (url.pathname.endsWith('reference-data/')) return referenceStatus === 200 ? ok(references) : failure(referenceStatus)
     if (url.pathname.endsWith('requests/')) return listHandler ? listHandler(url) : listStatus === 200 ? ok({ count: listResults.length ? 21 : 0, next: listResults.length ? '/api/v1/requests/?page=2' : null, previous: url.searchParams.get('page') === '2' ? '/api/v1/requests/?page=1' : null, results: listResults.map(value => ({ ...value, whatsapp_number: '+628120000000', email: 'private@example.test' })) }) : failure(listStatus, listStatus === 404 ? 'page_not_found' : 'server_error')
     if (/\/requests\/\d+\/$/.test(url.pathname)) return detailHandler ? detailHandler() : detailStatus === 200 ? ok({ ...request, whatsapp_number: '+628120000000', email: 'private@example.test' }) : failure(detailStatus)
@@ -73,6 +95,7 @@ async function mount(path = '/requests', viewer: number | null = null, reference
   container = document.createElement('div'); document.body.append(container); root = createRoot(container)
   router = createMemoryRouter([{ element: <AuthProvider><SessionControls /></AuthProvider>, children: [
     { path: '/requests', element: <BrowseRequests /> }, { path: '/requests/:id', element: <RequestDetail /> },
+    { element: <RequireAuth />, children: [{ path: '/requests/new', element: <RequestForm /> }, { path: '/requests/:id/edit', element: <EditRequest /> }] },
     { path: '/login', element: <h1>Masuk</h1> }, { path: '/requests/:id/offer', element: <h1>Form offer</h1> },
   ] }], { initialEntries: [path] })
   await act(async () => root.render(<RouterProvider router={router} />)); await settle()
@@ -94,7 +117,7 @@ async function input(name: string, value: string) {
 }
 async function submit() { await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))); await settle() }
 const listCalls = () => calls.filter(item => item.url.pathname.endsWith('requests/'))
-afterEach(async () => { await act(async () => root?.unmount()); router?.dispose(); container?.remove(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
+afterEach(async () => { await act(async () => root?.unmount()); router?.dispose(); container?.remove(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); setCsrfToken(null) })
 
 it('loads only public query fields and renders contract values without contacts', async () => {
   await mount('/requests?q=meal&area=Depok&resource_type=PACKAGED_FOOD_SURPLUS&category=prepared_meal&intended_use=HUMAN_CONSUMPTION&donate_only=false&ordering=valid_until&scope=mine&status=CLOSED')
@@ -274,4 +297,149 @@ it('uses the PR37 catalog labels and restricts all categories/uses to the chosen
   await select('resource_type', waste)
   expect(values('category')).toEqual(['', 'coffee_grounds', 'fruit_vegetable_scraps', 'eggshells'])
   expect(values('intended_use')).toEqual(['', 'COMPOSTING', 'BSF', 'ANIMAL_FEED', 'UPCYCLING'])
+})
+
+const writes = () => calls.filter(call => ['POST', 'PATCH'].includes(call.method))
+async function completeRequest() {
+  await select('resource_type', food); await select('category', 'prepared_meal'); await select('intended_use', 'HUMAN_CONSUMPTION')
+  await input('quantity_needed', '20'); await select('unit', 'box'); await input('valid_until', '2099-11-01T17:30')
+  const search = container.querySelector<HTMLInputElement>('[type="search"]')!
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 'Kampus UI'); search.dispatchEvent(new Event('input', { bubbles: true })) })
+  const button = container.querySelector<HTMLButtonElement>('[aria-label="Cari lokasi"]')!
+  await act(async () => button.click()); await settle(); await click('Pilih')
+}
+it('creates a donation request with session, CSRF and only writable contract fields', async () => {
+  await mount('/requests/new', 1); await completeRequest()
+  await act(async () => container.querySelector<HTMLInputElement>('[name="donate_only"]')!.click())
+  await submit()
+  expect(writes()).toHaveLength(1)
+  expect(writes()[0]).toMatchObject({ method: 'POST', credentials: 'include', csrf: 'request-token' })
+  expect(writes()[0].body).toEqual({ resource_type: food, category: 'prepared_meal', intended_use: 'HUMAN_CONSUMPTION', quantity_needed: '20', unit: 'box', location: fixture.location, donate_only: true, max_unit_price: null, valid_until: '2099-11-01T17:30:00+07:00' })
+  expect(router.state.location.pathname).toBe('/requests/8')
+  expect(container.textContent).toContain('Request berhasil diterbitkan')
+})
+it.each([['', null], ['0.00', '0.00'], ['15000.50', '15000.50']])('creates a priced-cap preference %s without rounding or coercing null', async (price, expected) => {
+  await mount('/requests/new', 1); await completeRequest(); await input('max_unit_price', price!); await submit()
+  expect(writes()[0].body).toMatchObject({ donate_only: false, max_unit_price: expected })
+})
+it('clears paid cap when donation-only is selected', async () => {
+  await mount('/requests/new', 1); await completeRequest(); await input('max_unit_price', '100.00')
+  await act(async () => container.querySelector<HTMLInputElement>('[name="donate_only"]')!.click())
+  expect(container.querySelector<HTMLInputElement>('[name="max_unit_price"]')!.value).toBe('')
+  expect(container.querySelector<HTMLInputElement>('[name="max_unit_price"]')!.disabled).toBe(true)
+  await submit(); expect(writes()[0].body!.max_unit_price).toBeNull()
+})
+it('loads existing edit values, sends a minimal PATCH and shows saved feedback', async () => {
+  await mount('/requests/7/edit', 1)
+  expect(container.querySelector<HTMLInputElement>('[name="quantity_needed"]')!.value).toBe('20')
+  expect(container.textContent).toContain('Lokasi terpilih')
+  expect(container.querySelector<HTMLInputElement>('[name="valid_until"]')!.value).toBe('2099-11-01T17:30')
+  await input('quantity_needed', '30'); await submit()
+  expect(writes()[0]).toMatchObject({ method: 'PATCH', csrf: 'request-token', body: { quantity_needed: '30' } })
+  expect(Object.keys(writes()[0].body!)).toEqual(['quantity_needed'])
+  expect(router.state.location.pathname).toBe('/requests/7')
+  expect(container.textContent).toContain('Perubahan request berhasil disimpan')
+})
+it('does not submit unchanged edits', async () => {
+  await mount('/requests/7/edit', 1); await submit()
+  expect(writes()).toHaveLength(0)
+  expect(container.textContent).toContain('Belum ada perubahan')
+})
+it('guards guest forms and blocks non-owner edit while retaining staff access', async () => {
+  await mount('/requests/new'); expect(router.state.location.pathname).toBe('/login')
+  expect(router.state.location.state).toEqual({ from: '/requests/new' })
+})
+it('denies an authenticated non-owner edit even when the detail is public', async () => {
+  await mount('/requests/7/edit', 2)
+  expect(container.textContent).toContain('Akses ditolak')
+  expect(container.querySelector('form')).toBeNull()
+})
+it('allows staff to edit requests through the regular endpoint', async () => {
+  await mount('/requests/7/edit', 2, 200, true); await input('quantity_needed', '25'); await submit()
+  expect(writes()[0].body).toEqual({ quantity_needed: '25' })
+})
+it.each([['quantity_needed', '0'], ['quantity_needed', '2.5'], ['max_unit_price', '-1'], ['max_unit_price', '10.001'], ['valid_until', '2020-01-01T00:00']])('validates invalid %s=%s without writing and preserves the draft', async (field, value) => {
+  await mount('/requests/new', 1); await completeRequest(); await input(field, value); await submit()
+  expect(writes()).toHaveLength(0)
+  expect(container.querySelector<HTMLInputElement>(`[name="${field}"]`)!.value).toBe(value)
+  expect(container.querySelector(`[name="${field}"]`)!.getAttribute('aria-invalid')).toBe('true')
+})
+it('requires selecting a valid location before create', async () => {
+  await mount('/requests/new', 1); await completeRequest(); await click('Hapus pilihan lokasi'); await submit()
+  expect(writes()).toHaveLength(0)
+  expect(container.textContent).toContain('Cari dan pilih lokasi kebutuhan yang valid')
+})
+it('maps server field errors and preserves user input after validation failure', async () => {
+  await mount('/requests/new', 1); await completeRequest(); writeStatus = 400; writeField = 'quantity_needed'; await submit()
+  expect(container.textContent).toContain('Informasi ditolak server')
+  expect(container.querySelector('[name="quantity_needed"]')!.getAttribute('aria-invalid')).toBe('true')
+  expect(container.querySelector<HTMLInputElement>('[name="quantity_needed"]')!.value).toBe('20')
+  expect(container.textContent).not.toContain('Secret traceback')
+})
+it.each([403, 404, 409, 429, 500, 501])('handles save failure %i without losing the draft or navigating', async status => {
+  await mount('/requests/new', 1); await completeRequest(); writeStatus = status; await submit()
+  expect(router.state.location.pathname).toBe('/requests/new')
+  expect(container.querySelector<HTMLInputElement>('[name="quantity_needed"]')!.value).toBe('20')
+  expect(container.textContent).toContain('Request belum tersimpan')
+  expect(container.textContent).not.toMatch(/Private backend|Secret traceback/)
+})
+it('redirects an expired session back to login with the form destination', async () => {
+  await mount('/requests/new', 1); await completeRequest(); writeStatus = 401; await submit()
+  expect(router.state.location.pathname).toBe('/login')
+  expect(router.state.location.state).toEqual({ from: '/requests/new' })
+})
+it('stops a write when CSRF bootstrap fails', async () => {
+  await mount('/requests/new', 1); await completeRequest(); csrfStatus = 403; await submit()
+  expect(writes()).toHaveLength(0)
+  expect(container.textContent).toContain('Verifikasi keamanan gagal')
+})
+it('prevents duplicate writes and disables controls until the save resolves', async () => {
+  await mount('/requests/new', 1); await completeRequest()
+  let finish: (response: Response) => void = () => {}
+  writeHandler = () => new Promise(resolve => { finish = resolve })
+  await submit(); await submit()
+  expect(writes()).toHaveLength(1)
+  expect(container.querySelector<HTMLFieldSetElement>('form > fieldset')!.disabled).toBe(true)
+  await act(async () => finish(ok({ ...fixture, id: 8 }))); await settle()
+  expect(router.state.location.pathname).toBe('/requests/8')
+})
+it('handles quantity-floor conflicts without replacing the draft', async () => {
+  await mount('/requests/7/edit', 1); await input('quantity_needed', '1'); writeStatus = 409; writeCode = 'quantity_floor'; await submit()
+  expect(container.textContent).toContain('dialokasikan dan terpenuhi')
+  expect(container.querySelector<HTMLInputElement>('[name="quantity_needed"]')!.value).toBe('1')
+})
+it('can restore locked identity fields while preserving other edits', async () => {
+  await mount('/requests/7/edit', 1); await select('category', 'bakery'); await input('quantity_needed', '25')
+  writeStatus = 409; writeCode = 'unit_locked'; await submit(); await click('Pulihkan field terkunci')
+  expect(container.querySelector<HTMLSelectElement>('[name="category"]')!.value).toBe('prepared_meal')
+  expect(container.querySelector<HTMLInputElement>('[name="quantity_needed"]')!.value).toBe('25')
+  writeStatus = 200; await submit(); expect(writes().at(-1)!.body).toEqual({ quantity_needed: '25' })
+})
+it('allows unchanged expired deadlines and terminal edits without sending status/counters', async () => {
+  await mount('/requests/7/edit', 1)
+  await act(async () => { await router.navigate('/requests') }); request.valid_until = '2020-01-01T00:00:00.123Z'; request.status = 'CLOSED'
+  await act(async () => { await router.navigate('/requests/7/edit') }); await settle()
+  expect(container.textContent).toContain('tidak membuka kembali request')
+  await input('quantity_needed', '25'); await submit()
+  expect(writes()[0].body).toEqual({ quantity_needed: '25' })
+  expect(request.status).toBe('CLOSED')
+})
+it('handles unavailable catalog with retry before allowing a form submission', async () => {
+  await mount('/requests/new', 1, 501)
+  expect(container.querySelector('form')).toBeNull()
+  referenceStatus = 200; await click('Muat pilihan resource')
+  expect(container.querySelector('form')).not.toBeNull()
+})
+it('validates exact decimal boundaries and serializes request fields without protected data', async () => {
+  await mount(); const catalog = await getReferenceData(); const value = requestValues(fixture)
+  value.fields.quantity = '999999999999.999'
+  expect(validateRequest(value, catalog)).toEqual({})
+  value.fields.quantity = '1000000000000'
+  expect(validateRequest(value, catalog).quantity).toBeDefined()
+  value.fields.quantity = '1.1234'; expect(validateRequest(value, catalog).quantity).toBeDefined()
+  value.fields.quantity = '1'; value.fields.intended_use = 'COMPOSTING'; expect(validateRequest(value, catalog).intended_use).toBeDefined()
+  const unchanged = requestValues(fixture)
+  expect(requestChanges(unchanged, fixture)).toEqual({})
+  expect(requestPayload(unchanged)).not.toHaveProperty('status')
+  expect(requestPayload(unchanged)).not.toHaveProperty('owner')
 })
