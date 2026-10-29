@@ -16,6 +16,7 @@ export default function AppLayout() {
   const authPage = pathname === '/login' || pathname === '/register'
   const profilePage = pathname === '/profile'
   const supplyPage = pathname === '/supply' || /^\/supply\/[^/]+(?:\/edit)?$/.test(pathname)
+  const pickupFlow = /^\/(?:reservations\/[^/]+\/pickup|pickups\/[^/]+)$/.test(pathname)
   const navigation = useNavigation()
   const auth = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -31,9 +32,34 @@ export default function AppLayout() {
     ...(user?.is_admin ? [{ to: '/admin', label: 'Moderasi admin' }] : []),
   ]
   const footerGroups = [
-    { title: 'Jelajahi', links: [{ to: '/supply', label: 'Cari resource' }, { to: '/requests', label: 'Papan request' }, ...(landing || authPage ? [{ to: '/#cara-kerja', label: 'Cara kerja' }] : [])] },
-    { title: 'Berbagi', links: [{ to: '/supply/new', label: 'Tawarkan resource' }, { to: '/requests/new', label: 'Buat request' }] },
-    ...(user ? [{ title: 'Akun', links: accountLinks }] : auth.status === 'anonymous' ? [{ title: 'Akun', links: [{ to: '/login', label: 'Masuk' }, { to: '/register', label: 'Daftar' }] }] : []),
+    {
+      title: 'Jelajahi',
+      links: [
+        { to: '/supply', label: 'Cari resource' },
+        { to: '/requests', label: 'Papan request' },
+        ...(landing || authPage ? [{ to: '/#cara-kerja', label: 'Cara kerja' }] : []),
+      ],
+    },
+    {
+      title: 'Berbagi',
+      links: [
+        { to: '/supply/new', label: 'Tawarkan resource' },
+        { to: '/requests/new', label: 'Buat request' },
+      ],
+    },
+    ...(user
+      ? [{ title: 'Akun', links: accountLinks }]
+      : auth.status === 'anonymous'
+        ? [
+            {
+              title: 'Akun',
+              links: [
+                { to: '/login', label: 'Masuk' },
+                { to: '/register', label: 'Daftar' },
+              ],
+            },
+          ]
+        : []),
   ]
   if ((landing || authPage) && !user) {
     footerGroups[1] = { title: 'Berbagi & akun', links: footerGroups.slice(1).flatMap(group => group.links) }
@@ -61,15 +87,62 @@ export default function AppLayout() {
     if (navigation.state === 'idle') document.getElementById('main-content')?.focus({ preventScroll: true })
   }, [pathname, search, auth.status, navigation.state])
 
+  const mainClassName = supplyPage
+    ? 'w-full flex-1 bg-supply-canvas focus:outline-none'
+    : pickupFlow
+      ? 'w-full flex-1 bg-canvas focus:outline-none'
+      : authPage
+        ? `flex w-full flex-col items-center justify-center bg-surface px-6 py-12 focus:outline-none nav:px-20 nav:py-16 ${
+            pathname === '/login'
+              ? 'min-h-[771px] nav:min-h-[685px]'
+              : 'nav:min-h-[939px]'
+          }`
+        : profilePage
+          ? 'w-full flex-1 px-6 pt-8 pb-12 focus:outline-none nav:px-16 nav:pt-10'
+          : landing
+            ? 'w-full flex-1 focus:outline-none'
+            : 'mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16'
+
   return (
     <>
-      <a className="fixed -top-25 left-4 z-10 bg-surface p-3 focus:top-3" href="#main-content">Langsung ke konten</a>
-      <Navbar key={`${pathname}${search}:${auth.status}`} authPage={authPage || profilePage} user={user ? { name: user.display_name || user.name || user.email || 'Akun saya' } : null} accountLinks={accountLinks} sessionStatus={auth.status} onRetrySession={() => auth.refresh()} onLogout={handleLogout} loggingOut={loggingOut} />
-      <main id="main-content" className={supplyPage ? 'w-full flex-1 bg-supply-canvas focus:outline-none' : authPage ? `flex w-full flex-col items-center justify-center bg-surface px-6 py-12 focus:outline-none nav:px-20 nav:py-16 ${pathname === '/login' ? 'min-h-[771px] nav:min-h-[685px]' : 'nav:min-h-[939px]'}` : profilePage ? 'w-full flex-1 px-6 pt-8 pb-12 focus:outline-none nav:px-16 nav:pt-10' : landing ? 'w-full flex-1 focus:outline-none' : 'mx-auto w-[calc(100%_-_2rem)] max-w-280 sm:w-[calc(100%_-_3rem)] flex-1 pt-7 pb-12 focus:outline-none sm:pt-10 sm:pb-16'} tabIndex={-1} aria-busy={navigation.state !== 'idle'}>
-        {logoutError && <Alert tone="danger" title="Gagal keluar"><p>Sesi belum diakhiri. Coba lagi.</p><Button variant="secondary" onClick={handleLogout} loading={loggingOut}>Coba keluar lagi</Button></Alert>}
+      <a className="fixed -top-25 left-4 z-10 bg-surface p-3 focus:top-3" href="#main-content">
+        Langsung ke konten
+      </a>
+      <Navbar
+        key={`${pathname}${search}:${auth.status}`}
+        authPage={authPage || profilePage}
+        user={
+          user
+            ? { name: user.display_name || user.name || user.email || 'Akun saya' }
+            : null
+        }
+        accountLinks={accountLinks}
+        sessionStatus={auth.status}
+        onRetrySession={() => auth.refresh()}
+        onLogout={handleLogout}
+        loggingOut={loggingOut}
+      />
+      <main
+        id="main-content"
+        className={mainClassName}
+        tabIndex={-1}
+        aria-busy={navigation.state !== 'idle'}
+      >
+        {logoutError && (
+          <Alert tone="danger" title="Gagal keluar">
+            <p>Sesi belum diakhiri. Coba lagi.</p>
+            <Button variant="secondary" onClick={handleLogout} loading={loggingOut}>
+              Coba keluar lagi
+            </Button>
+          </Alert>
+        )}
         <Outlet />
       </main>
-      <Footer groups={footerGroups} landing={landing} />
+      <Footer
+        groups={footerGroups}
+        landing={landing}
+        compact={pickupFlow}
+      />
     </>
   )
 }

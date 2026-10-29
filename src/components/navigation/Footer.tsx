@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import TransactionFooter from '../transactions/TransactionFooter.tsx'
 
 const defaultGroups = [
   {
@@ -19,9 +20,32 @@ const defaultGroups = [
   },
 ]
 
-export default function Footer({ groups = defaultGroups, attribution = 'Pencarian lokasi: OpenStreetMap / Nominatim', landing = false }: { groups?: { title: string; links: { to: string; label: string }[] }[]; attribution?: string; landing?: boolean }) {
+export default function Footer({
+  groups = defaultGroups,
+  attribution = 'Pencarian lokasi: OpenStreetMap / Nominatim',
+  landing = false,
+  compact = false,
+}: {
+  groups?: { title: string; links: { to: string; label: string }[] }[]
+  attribution?: string
+  landing?: boolean
+  compact?: boolean
+}) {
+  if (compact) {
+    return (
+      <div className="bg-canvas px-6 nav:px-12">
+        <div className="mx-auto w-full max-w-320">
+          <TransactionFooter />
+        </div>
+      </div>
+    )
+  }
   return (
-    <footer className={`border-t border-border bg-surface text-sm leading-normal [&_p]:m-0 [&_p]:text-muted ${landing ? 'px-5 py-8 lg:px-6' : 'px-5 py-6 nav:p-8'}`}>
+    <footer
+      className={`border-t border-border bg-surface text-sm leading-normal [&_p]:m-0 [&_p]:text-muted ${
+        landing ? 'px-5 py-8 lg:px-6' : 'px-5 py-6 nav:p-8'
+      }`}
+    >
       <div className={`flex flex-col gap-6 ${landing ? 'mx-auto max-w-300' : ''}`}>
         <div className="flex flex-col gap-6 nav:flex-row nav:gap-8">
           <div className="nav:basis-64 nav:shrink-0">

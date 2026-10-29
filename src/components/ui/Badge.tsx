@@ -15,6 +15,8 @@ const tones: Record<string, 'neutral' | 'success' | 'info' | 'warning' | 'danger
   ALLOCATED: 'info',
   PENDING: 'info',
   ACCEPTED: 'success',
+  SCHEDULED: 'success',
+  NO_SHOW: 'warning',
   EXPIRED: 'warning',
   REJECTED: 'danger',
   CANCELLED: 'neutral',

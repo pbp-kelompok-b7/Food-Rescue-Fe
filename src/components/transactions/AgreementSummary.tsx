@@ -10,7 +10,19 @@ export default function AgreementSummary({
   deadline,
   location,
   condition,
-}: { reference?: string; title: string; provider: string; receiver: string; quantity: number; unit: string; sharingLabel?: string; deadlineLabel?: string; deadline?: string; location?: string; condition?: string }) {
+}: {
+  reference?: string
+  title: string
+  provider: string
+  receiver: string
+  quantity?: number | string
+  unit?: string
+  sharingLabel?: string
+  deadlineLabel?: string
+  deadline?: string
+  location?: string
+  condition?: string
+}) {
   return (
     <section className="flex min-w-0 flex-col gap-4 rounded-md border border-border bg-surface p-4 leading-normal wrap-anywhere nav:p-6 [&_dl]:m-0 [&_dl]:flex [&_dl]:flex-col [&_dl]:gap-4 [&_dt]:mb-1 [&_dt]:text-sm [&_dt]:text-muted [&_dd]:m-0">
       <div className="flex flex-col gap-1">
@@ -32,15 +44,17 @@ export default function AgreementSummary({
         </dl>
       </div>
       <dl>
-        <div>
-          <dt>Jumlah &amp; cara berbagi</dt>
-          <dd>
-            <strong>
-              {quantity} {unit}
-              {sharingLabel && ` · ${sharingLabel}`}
-            </strong>
-          </dd>
-        </div>
+        {quantity != null && unit && (
+          <div>
+            <dt>Jumlah &amp; cara berbagi</dt>
+            <dd>
+              <strong>
+                {quantity} {unit}
+                {sharingLabel && ` · ${sharingLabel}`}
+              </strong>
+            </dd>
+          </div>
+        )}
         {deadline && (
           <div>
             <dt>{deadlineLabel}</dt>
