@@ -4,19 +4,12 @@ import type { ResourceRequest } from '../../services/requests.ts'
 import type { LocationResult, ReferenceData } from '../../services/reference.ts'
 import { locationPayload } from '../../services/reference.ts'
 import { decimalError, toJakartaTimestamp } from '../../components/resources/resourceFields.ts'
+import { deadlineText, makeLabeller, priceText, quantityText } from '../../services/format.ts'
 
-const labels: Record<string, string> = {
-  PACKAGED_FOOD_SURPLUS: 'Makanan kemasan', COMPOSTABLE_FOOD_WASTE: 'Bahan organik',
-  HUMAN_CONSUMPTION: 'Konsumsi manusia', ANIMAL_FEED: 'Pakan hewan', COMPOSTING: 'Kompos', BSF: 'Pakan maggot (BSF)', UPCYCLING: 'Olahan kembali',
-  DONATE: 'Donasi', SELL: 'Jual', OPEN: 'Terbuka', ALLOCATED: 'Dialokasikan', FULFILLED: 'Terpenuhi', CLOSED: 'Ditutup', EXPIRED: 'Kedaluwarsa',
-}
-export const offerLabel = (value: string) => labels[value] || value.replaceAll('_', ' ')
-export const quantityText = (value: string | number) => String(value).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
-export const priceText = (value: string) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 }).format(Number(value))
-export function deadlineText(value: string) {
-  const date = new Date(value)
-  return Number.isFinite(date.getTime()) ? `${new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(date)} WIB` : 'Waktu tidak tersedia'
-}
+export { deadlineText, priceText, quantityText }
+export const offerLabel = makeLabeller({
+  OPEN: 'Terbuka', ALLOCATED: 'Dialokasikan', FULFILLED: 'Terpenuhi', CLOSED: 'Ditutup', EXPIRED: 'Kedaluwarsa',
+})
 
 // A request accepts new offers only while OPEN, not archived, with remaining
 // need, and before valid_until (contract 7.3.1 / 7.4.2).

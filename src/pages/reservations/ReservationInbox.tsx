@@ -10,7 +10,7 @@ import { reservationsApi, type ReservationPage } from '../../services/reservatio
 import { actionLabel, followUpText, quantityText, reservationError, reservationLabel, reservationRef, sharingText } from './model.ts'
 
 const roleOptions = [{ value: '', label: 'Semua peran' }, { value: 'provider', label: 'Sebagai provider' }, { value: 'receiver', label: 'Sebagai receiver' }]
-const statusOptions = [{ value: '', label: 'Semua status' }, { value: 'PENDING', label: 'Menunggu persetujuan' }, { value: 'ACCEPTED', label: 'Diterima' }, { value: 'REJECTED', label: 'Ditolak' }, { value: 'CANCELLED', label: 'Dibatalkan' }]
+const statusOptions = [{ value: '', label: 'Semua status' }, { value: 'PENDING', label: 'Menunggu keputusan' }, { value: 'ACCEPTED', label: 'Diterima' }, { value: 'REJECTED', label: 'Ditolak' }, { value: 'CANCELLED', label: 'Dibatalkan' }]
 const sourceOptions = [{ value: '', label: 'Claim & penawaran' }, { value: 'LISTING_CLAIM', label: 'Claim listing' }, { value: 'REQUEST_OFFER', label: 'Penawaran request' }]
 
 export default function ReservationInbox() {

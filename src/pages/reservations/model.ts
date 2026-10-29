@@ -1,21 +1,12 @@
 import { ApiError } from '../../services/api.ts'
-
-const labels: Record<string, string> = {
-  PACKAGED_FOOD_SURPLUS: 'Makanan kemasan', COMPOSTABLE_FOOD_WASTE: 'Sisa organik',
-  HUMAN_CONSUMPTION: 'Konsumsi manusia', ANIMAL_FEED: 'Pakan hewan', COMPOSTING: 'Kompos', BSF: 'Pakan maggot (BSF)', UPCYCLING: 'Olahan kembali',
-  DONATE: 'Donasi', SELL: 'Jual',
-  PENDING: 'Menunggu persetujuan', ACCEPTED: 'Diterima', REJECTED: 'Ditolak', CANCELLED: 'Dibatalkan',
-  LISTING_CLAIM: 'Claim listing', REQUEST_OFFER: 'Penawaran request',
-}
-export const reservationLabel = (value: string) => labels[value] || value.replaceAll('_', ' ')
-export const quantityText = (value: string | number) => String(value).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
-export const priceText = (value: string) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 }).format(Number(value))
-export function deadlineText(value: string) {
-  const date = new Date(value)
-  return Number.isFinite(date.getTime()) ? `${new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(date)} WIB` : 'Waktu tidak tersedia'
-}
-
 import type { Reservation } from '../../services/reservations.ts'
+import { deadlineText, makeLabeller, priceText, quantityText } from '../../services/format.ts'
+
+export { deadlineText, priceText, quantityText }
+export const reservationLabel = makeLabeller({
+  PENDING: 'Menunggu keputusan', ACCEPTED: 'Diterima', REJECTED: 'Ditolak', CANCELLED: 'Dibatalkan',
+  LISTING_CLAIM: 'Claim listing', REQUEST_OFFER: 'Penawaran request',
+})
 
 export const reservationRef = (id: number | string) => `RSV-${String(id).padStart(3, '0')}`
 export const sourceKindLabel = (sourceType: string) => (sourceType === 'LISTING_CLAIM' ? 'Claim listing' : 'Penawaran request')
@@ -72,4 +63,43 @@ export function reservationError(error: unknown): string {
     if (error.status === 501) return 'Layanan reservation belum tersedia. Coba lagi nanti.'
   }
   return 'Reservation belum dapat dibuka. Periksa koneksi dan coba lagi.'
+}
+
+// Does this error mean the approver/submitter saw a stale version and must
+// reload before deciding again (contract 7.4.5-7.4.7 stale_version)?
+export function isStaleVersion(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && error.errors.some(item => item.code === 'stale_version')
+}
+
+// Error copy for revise/accept/reject/cancel actions (contract §9). Covers the
+// stale_version / invalid_transition / insufficient_quantity / deadline_passed /
+// source_not_accepting / terms_mismatch conflict codes without false success.
+export function actionError(error: unknown): string {
+  if (error instanceof RangeError) return 'ID reservation tidak valid.'
+  if (error instanceof ApiError) {
+    if (error.status === 400) return 'Periksa kembali data yang kamu masukkan.'
+    if (error.status === 401) return 'Sesi berakhir. Masuk kembali untuk melanjutkan.'
+    if (error.status === 403) return error.errors.some(item => item.code === 'csrf_failed') ? 'Verifikasi keamanan gagal. Coba kirim kembali.' : 'Kamu tidak berhak melakukan tindakan ini pada reservation ini.'
+    if (error.status === 404) return 'Reservation tidak ditemukan atau tidak dapat diakses.'
+    if (error.status === 409) {
+      if (error.errors.some(item => item.code === 'stale_version')) return 'Pengajuan sudah diperbarui. Data dimuat ulang — tinjau versi terbaru sebelum melanjutkan.'
+      if (error.errors.some(item => item.code === 'invalid_transition')) return 'Status reservation sudah berubah sehingga tindakan ini tidak berlaku lagi. Data dimuat ulang.'
+      if (error.errors.some(item => item.code === 'insufficient_quantity')) return 'Jumlah melebihi yang tersedia saat ini. Sesuaikan jumlah lalu coba lagi.'
+      if (error.errors.some(item => item.code === 'deadline_passed')) return 'Batas waktu resource sudah terlewati sehingga tindakan tidak dapat dilakukan.'
+      if (error.errors.some(item => item.code === 'source_not_accepting')) return 'Sumber sudah ditutup atau kedaluwarsa sehingga tidak dapat diterima.'
+      if (error.errors.some(item => item.code === 'terms_mismatch')) return 'Terms tidak lagi sesuai dengan sumber terbaru.'
+      return 'Tindakan berbenturan dengan status terbaru. Data dimuat ulang.'
+    }
+    if (error.status === 429) return 'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.'
+    if (error.status === 501) return 'Layanan reservation belum tersedia. Coba lagi nanti.'
+  }
+  return 'Tindakan belum dapat diproses. Periksa koneksi dan coba lagi.'
+}
+
+// Inline field error for the revised quantity, when the server attributes it.
+export function actionFieldError(error: unknown): string | undefined {
+  if (error instanceof ApiError && (error.status === 400 || error.status === 409)) {
+    const item = error.errors.find(entry => entry.field === 'quantity' && typeof entry.message === 'string')
+    if (item) return item.message.slice(0, 300)
+  }
 }
