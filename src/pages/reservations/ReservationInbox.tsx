@@ -80,7 +80,7 @@ export default function ReservationInbox() {
             actions={<Link className="fr-button" to={`/reservations/${reservation.id}`}>{actionLabel(reservation, viewerId)}</Link>}
           />)}</div>
           <nav aria-label="Halaman reservasi" className="mt-6 flex flex-wrap items-center justify-center gap-4"><Button variant="secondary" disabled={page <= 1} onClick={() => setParams({ ...Object.fromEntries(params), page: String(page - 1) })}>Sebelumnya</Button><span aria-current="page">Halaman {page}</span><Button variant="secondary" disabled={!data.next} onClick={() => setParams({ ...Object.fromEntries(params), page: String(page + 1) })}>Berikutnya</Button></nav></>
-        : <PageState title="Belum ada reservasi" action={<><Link className="fr-button" to="/supply">Cari resource</Link><Link className="fr-button ml-3 not-disabled:border not-disabled:border-outline not-disabled:bg-surface not-disabled:text-ink not-disabled:shadow-none" to="/requests">Papan request</Link></>}>Ajukan claim pada supply atau tawarkan resource pada request untuk memulai.</PageState>)}
+        : <PageState title="Belum ada reservasi" action={<div className="flex flex-wrap items-center gap-3"><Link className="fr-button" to="/supply">Cari resource</Link><Link className="fr-button not-disabled:border not-disabled:border-outline not-disabled:bg-surface not-disabled:text-ink not-disabled:shadow-none" to="/requests">Papan request</Link></div>}>Ajukan claim pada supply atau tawarkan resource pada request untuk memulai.</PageState>)}
     </section>
   </div>
 }
