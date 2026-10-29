@@ -8,7 +8,12 @@ import FormField from '../../components/ui/FormField.tsx'
 import Select from '../../components/ui/Select.tsx'
 import { ApiError } from '../../services/api.ts'
 import { pickupsApi, type PickupPage } from '../../services/pickups.ts'
-import { jakartaDateTime, pickupStatusLabel } from './scheduleModel.ts'
+import { jakartaDateTime, pickupStatusLabel, reservationReference } from './scheduleModel.ts'
+
+function pickupReference(id: number | string) {
+  const value = String(id)
+  return `PICKUP-${/^\d+$/.test(value) ? value.padStart(3, '0') : value}`
+}
 
 const pageSize = '20'
 const statusOptions = [
@@ -160,11 +165,11 @@ export default function PickupsList() {
                 <li key={pickup.id} className="min-w-0">
                   <article className="flex h-full flex-col items-start gap-4 rounded-md border border-border bg-surface p-5">
                     <div className="flex w-full flex-wrap items-center justify-between gap-3">
-                      <span className="text-sm text-muted">Reservation #{pickup.reservation_id}</span>
+                      <span className="text-sm text-muted">{reservationReference(pickup.reservation_id)}</span>
                       <Badge status={pickup.status}>{pickupStatusLabel(pickup.status)}</Badge>
                     </div>
                     <h3 className="m-0 text-lg font-semibold">
-                      Pickup #{pickup.id}
+                      {pickupReference(pickup.id)}
                     </h3>
                     <dl className="m-0 grid gap-3 text-sm">
                       <div>

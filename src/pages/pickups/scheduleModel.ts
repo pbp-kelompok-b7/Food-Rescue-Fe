@@ -15,6 +15,9 @@ export interface AcceptedSnapshot {
 
 export interface ReservationForPickup {
   id: number | string
+  source_type?: 'LISTING_CLAIM' | 'REQUEST_OFFER' | string
+  listing_id?: number | null
+  request_id?: number | null
   status: string
   provider: { id: number; display_name?: string }
   receiver: { id: number; display_name?: string }

@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
 import Alert from '../../components/ui/Alert.tsx'
 import Badge from '../../components/ui/Badge.tsx'
 import Button from '../../components/ui/Button.tsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.tsx'
+import FormField from '../../components/ui/FormField.tsx'
+import Textarea from '../../components/ui/Textarea.tsx'
 import AgreementSummary from '../../components/transactions/AgreementSummary.tsx'
 import { ApiError } from '../../services/api.ts'
 import { bootstrapCsrf } from '../../services/auth.ts'
 import { pickupsApi, type Pickup } from '../../services/pickups.ts'
 import { reservationsApi } from '../../services/reservations.ts'
+import { listingsApi } from '../../services/listings.ts'
+import { requestsApi } from '../../services/requests.ts'
 import { quantityText, supplyLabel } from '../supply/model.ts'
 import type { ReservationForPickup } from './scheduleModel.ts'
 import { jakartaDateTime, pickupStatusLabel, reservationReference } from './scheduleModel.ts'
@@ -22,6 +26,7 @@ export default function PickupDetail() {
   const clearSession = auth.clearSession
   const [pickup, setPickup] = useState<Pickup | null>(null)
   const [reservation, setReservation] = useState<ReservationForPickup | null>(null)
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
   const [now, setNow] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,9 +34,59 @@ export default function PickupDetail() {
   const [attempt, setAttempt] = useState(0)
   const [confirming, setConfirming] = useState(false)
   const [receiptOpen, setReceiptOpen] = useState(false)
+  const [noShowOpen, setNoShowOpen] = useState(false)
+  const [noShowReason, setNoShowReason] = useState('')
+  const [noShowReasonError, setNoShowReasonError] = useState<string | null>(null)
+  const [noShowError, setNoShowError] = useState<string | null>(null)
+  const [markingNoShow, setMarkingNoShow] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const completingRef = useRef(false)
+  const noShowSubmittingRef = useRef(false)
+
+  async function refreshSource(relatedReservation: ReservationForPickup) {
+    if (relatedReservation.source_type === 'LISTING_CLAIM' && relatedReservation.listing_id != null) {
+      await listingsApi.detail(relatedReservation.listing_id)
+      return
+    }
+    if (relatedReservation.source_type === 'REQUEST_OFFER' && relatedReservation.request_id != null) {
+      await requestsApi.detail(relatedReservation.request_id)
+      return
+    }
+    throw new Error('Sumber reservation tidak tersedia.')
+  }
+
+  async function refreshAfterAction(updatedPickup: Pickup) {
+    setPickup(updatedPickup)
+    setRefreshNotice(null)
+    const [pickupResult, reservationResult] = await Promise.allSettled([
+      pickupsApi.detail(updatedPickup.id) as Promise<Pickup>,
+      reservationsApi.detail(String(updatedPickup.reservation_id)) as Promise<ReservationForPickup>,
+    ])
+    const refreshedPickup = pickupResult.status === 'fulfilled' ? pickupResult.value : updatedPickup
+    const refreshedReservation = reservationResult.status === 'fulfilled'
+      ? reservationResult.value
+      : updatedPickup.status === 'NO_SHOW' && reservation
+        ? { ...reservation, status: 'CANCELLED' }
+        : reservation
+    setPickup(refreshedPickup)
+    if (refreshedReservation) setReservation(refreshedReservation)
+
+    let refreshFailed = pickupResult.status === 'rejected' || reservationResult.status === 'rejected'
+    if (refreshedReservation) {
+      try {
+        await refreshSource(refreshedReservation)
+      } catch {
+        refreshFailed = true
+      }
+    } else {
+      refreshFailed = true
+    }
+    if (refreshFailed) {
+      setRefreshNotice('Aksi berhasil, tetapi sebagian data pickup, reservation, atau counter sumber gagal dimuat ulang. Refresh halaman untuk melihat data terbaru.')
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -60,23 +115,93 @@ export default function PickupDetail() {
     return () => controller.abort()
   }, [id, attempt, clearSession])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   async function confirmReceipt() {
-    if (!pickup || confirming) return
+    if (!pickup || completingRef.current) return
+    completingRef.current = true
     setConfirming(true)
     setActionError(null)
+    setRefreshNotice(null)
     try {
+      await bootstrapCsrf()
       const updated = await pickupsApi.complete(pickup.id, {}) as Pickup
-      setPickup(updated)
+      await refreshAfterAction(updated)
       setReceiptOpen(false)
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) clearSession()
-      setActionError(
-        failure instanceof ApiError && failure.status === 409
-          ? 'Pickup berubah saat konfirmasi. Muat ulang untuk melihat status terbaru.'
-          : 'Konfirmasi penerimaan belum berhasil. Coba lagi.',
-      )
+      const codes = failure instanceof ApiError ? failure.errors.map(item => item.code) : []
+      const message = failure instanceof ApiError && failure.status === 403
+        ? 'Hanya receiver pada reservasi ini yang dapat mengonfirmasi penerimaan.'
+        : failure instanceof ApiError && failure.status === 404
+          ? 'Pickup tidak ditemukan atau tidak dapat diakses.'
+          : failure instanceof ApiError && failure.status === 401
+            ? 'Sesi berakhir. Masuk kembali untuk melanjutkan.'
+            : failure instanceof ApiError && failure.status === 409 && codes.includes('deadline_passed')
+              ? 'Batas resource sudah lewat. Penerimaan tidak dapat dikonfirmasi.'
+              : failure instanceof ApiError && failure.status === 409 && codes.includes('invalid_transition')
+                ? 'Pickup atau reservasi sudah berubah. Muat ulang untuk melihat status terbaru.'
+                : failure instanceof ApiError && failure.status === 409
+                  ? 'Pickup berubah dan tidak dapat diselesaikan. Muat ulang untuk melihat status terbaru.'
+                  : 'Konfirmasi penerimaan belum berhasil. Periksa koneksi lalu coba lagi.'
+      setActionError(message)
     } finally {
+      completingRef.current = false
       setConfirming(false)
+    }
+  }
+
+  async function markNoShow() {
+    if (!pickup || noShowSubmittingRef.current) return
+    const reason = noShowReason.trim()
+    if (!reason) {
+      setNoShowReasonError('Alasan wajib diisi.')
+      return
+    }
+    if (reason.length > 1000) {
+      setNoShowReasonError('Alasan maksimal 1.000 karakter.')
+      return
+    }
+
+    noShowSubmittingRef.current = true
+    setMarkingNoShow(true)
+    setNoShowError(null)
+    setNoShowReasonError(null)
+    setRefreshNotice(null)
+    try {
+      await bootstrapCsrf()
+      const updated = await pickupsApi.noShow(pickup.id, { reason }) as Pickup
+      await refreshAfterAction(updated)
+      setNoShowOpen(false)
+      setNoShowReason('')
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) clearSession()
+      const codes = failure instanceof ApiError ? failure.errors.map(item => item.code) : []
+      if (failure instanceof ApiError && failure.status === 403) {
+        setNoShowError('Hanya provider pada reservasi ini yang dapat mencatat pickup tidak hadir.')
+      } else if (failure instanceof ApiError && failure.status === 404) {
+        setNoShowError('Pickup tidak ditemukan atau tidak dapat diakses.')
+      } else if (failure instanceof ApiError && failure.status === 401) {
+        setNoShowError('Sesi berakhir. Masuk kembali untuk melanjutkan.')
+      } else if (failure instanceof ApiError && failure.status === 400 && failure.errors.some(item => item.field === 'reason')) {
+        setNoShowReasonError('Alasan wajib diisi dan maksimal 1.000 karakter.')
+      } else if (failure instanceof ApiError && failure.status === 409 && codes.includes('pickup_time_not_passed')) {
+        setNoShowError('No-show hanya dapat dicatat setelah waktu pickup terlewati.')
+      } else if (failure instanceof ApiError && failure.status === 409 && codes.includes('deadline_passed')) {
+        setNoShowError('Batas resource sudah lewat. Pickup tidak dapat ditandai tidak hadir.')
+      } else if (failure instanceof ApiError && failure.status === 409 && codes.includes('invalid_transition')) {
+        setNoShowError('Pickup atau reservasi sudah berubah. Muat ulang untuk melihat status terbaru.')
+      } else if (failure instanceof ApiError && failure.status === 409) {
+        setNoShowError('Pickup berubah dan tidak dapat ditandai tidak hadir. Muat ulang untuk melihat status terbaru.')
+      } else {
+        setNoShowError('No-show belum berhasil dicatat. Periksa koneksi lalu coba lagi.')
+      }
+    } finally {
+      noShowSubmittingRef.current = false
+      setMarkingNoShow(false)
     }
   }
 
@@ -89,8 +214,8 @@ export default function PickupDetail() {
       await reservationsApi.cancel(reservation.id, {
         reason: 'Dibatalkan oleh peserta melalui halaman detail pickup.',
       })
-      setReservation({ ...reservation, status: 'CANCELLED' })
-      setPickup({ ...pickup, status: 'CANCELLED', cancelled_at: new Date().toISOString() })
+      await refreshAfterAction({ ...pickup, status: 'CANCELLED', cancelled_at: new Date().toISOString() })
+      setCancelOpen(false)
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) clearSession()
       setCancelError(
@@ -151,10 +276,18 @@ export default function PickupDetail() {
     `https://www.openstreetmap.org/?mlat=${pickup.location.latitude}` +
     `&mlon=${pickup.location.longitude}#map=16/${pickup.location.latitude}/${pickup.location.longitude}`
   const isCancelled = pickup.status === 'CANCELLED'
-  const canConfirm = isReceiver && pickup.status === 'SCHEDULED'
-  const canCancel = (isReceiver || isProvider) && pickup.status === 'SCHEDULED'
+  const isNoShow = pickup.status === 'NO_SHOW'
   const deadline = snapshot?.resource_deadline
   const deadlineTimestamp = deadline ? Date.parse(deadline) : NaN
+  const scheduledTimestamp = Date.parse(pickup.scheduled_at)
+  const eligibleReservation = reservation.status === 'ACCEPTED'
+  const beforeDeadline = now !== null && Number.isFinite(deadlineTimestamp) && now < deadlineTimestamp
+  const canConfirm = isReceiver && eligibleReservation && pickup.status === 'SCHEDULED' && beforeDeadline
+  const canRecordNoShow =
+    isProvider && eligibleReservation && pickup.status === 'SCHEDULED' &&
+    now !== null && Number.isFinite(scheduledTimestamp) && now > scheduledTimestamp && beforeDeadline
+  const canCancel =
+    (isReceiver || isProvider) && eligibleReservation && pickup.status === 'SCHEDULED' && beforeDeadline
   const canEditInstructions =
     isProvider &&
     reservation.status === 'ACCEPTED' &&
@@ -188,7 +321,13 @@ export default function PickupDetail() {
       </Link>
       <header className="flex flex-col items-start gap-2">
         <h1 className="m-0 font-brand text-[28px] font-bold nav:text-[32px]">
-          {isCancelled ? 'Pickup dibatalkan' : 'Pickup terjadwal'}
+          {pickup.status === 'COMPLETED'
+            ? 'Pickup selesai'
+            : isNoShow
+              ? 'Pickup tidak terlaksana'
+              : isCancelled
+                ? 'Pickup dibatalkan'
+                : 'Pickup terjadwal'}
         </h1>
         <p className="m-0 text-muted">
           {reservationReference(reservation.id)} · {roleLabel}
@@ -197,6 +336,12 @@ export default function PickupDetail() {
           {pickupStatusLabel(pickup.status)}
         </Badge>
       </header>
+
+      {refreshNotice && (
+        <Alert tone="info" title="Aksi berhasil; refresh data belum lengkap">
+          {refreshNotice}
+        </Alert>
+      )}
 
       <div className="grid items-start gap-6 nav:grid-cols-[1.05fr_0.95fr] nav:gap-6">
         {snapshot && (
@@ -252,6 +397,22 @@ export default function PickupDetail() {
               </p>
             </div>
           )}
+          {pickup.status === 'COMPLETED' && (
+            <div className="rounded-md bg-organic p-4">
+              <h3 className="m-0 text-base font-bold">Penerimaan dicatat</h3>
+              <p className="mt-2 mb-0 text-sm">
+                Seluruh {pickupQuantity || 'resource'} telah dikonfirmasi diterima. Ini bukan verifikasi pembayaran.
+              </p>
+            </div>
+          )}
+          {isNoShow && (
+            <div className="rounded-md bg-organic p-4">
+              <h3 className="m-0 text-base font-bold">Reservasi dibatalkan</h3>
+              <p className="mt-2 mb-0 text-sm">
+                Pickup ditandai tidak hadir. Reservasi dibatalkan dan alokasi resource diperbarui.
+              </p>
+            </div>
+          )}
           {canConfirm && (
             <Button
               onClick={() => {
@@ -261,6 +422,26 @@ export default function PickupDetail() {
               disabled={confirming}
             >
               Konfirmasi penerimaan
+            </Button>
+          )}
+          {isProvider && pickup.status === 'SCHEDULED' && eligibleReservation &&
+            now !== null && Number.isFinite(scheduledTimestamp) && now <= scheduledTimestamp && beforeDeadline && (
+              <p className="m-0 text-xs text-muted">
+                Opsi tandai tidak hadir tersedia setelah waktu pickup terlewati.
+              </p>
+            )}
+          {canRecordNoShow && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setNoShowError(null)
+                setNoShowReasonError(null)
+                setNoShowOpen(true)
+              }}
+              disabled={markingNoShow}
+            >
+              Tandai tidak hadir
             </Button>
           )}
           {otherWhatsapp ? (
@@ -334,8 +515,48 @@ export default function PickupDetail() {
           </Alert>
         )}
         <p className="m-0">
-          Konfirmasi setelah seluruh {pickupQuantity || 'resource'} diterima. Pickup akan ditandai selesai.
+          Konfirmasi setelah seluruh {pickupQuantity || 'resource'} diterima. Pickup akan ditandai selesai. Ini bukan verifikasi pembayaran.
         </p>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={noShowOpen}
+        title="Tandai pickup tidak hadir?"
+        confirmLabel="Ya, tandai tidak hadir"
+        destructive
+        loading={markingNoShow}
+        stacked
+        onCancel={() => setNoShowOpen(false)}
+        onConfirm={markNoShow}
+      >
+        {noShowError && (
+          <Alert tone="danger" title="No-show belum tersimpan">
+            {noShowError}
+          </Alert>
+        )}
+        <div className="flex flex-col gap-4">
+          <p className="m-0">
+            Jika receiver tidak hadir, pickup akan ditandai tidak hadir dan reservation dibatalkan. Tindakan ini tidak dapat dibuka kembali.
+          </p>
+          <FormField
+            label="Alasan no-show"
+            required
+            hint={`${noShowReason.length}/1.000 karakter`}
+            error={noShowReasonError || undefined}
+          >
+            <Textarea
+              name="reason"
+              value={noShowReason}
+              maxLength={1000}
+              onChange={event => {
+                setNoShowReason(event.target.value)
+                setNoShowReasonError(null)
+                setNoShowError(null)
+              }}
+              placeholder="Jelaskan alasan receiver tercatat tidak hadir."
+              rows={4}
+            />
+          </FormField>
+        </div>
       </ConfirmDialog>
       <ConfirmDialog
         open={cancelOpen}
