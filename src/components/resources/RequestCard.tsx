@@ -14,8 +14,9 @@ export default function RequestCard({
   intendedUse,
   area,
   status = 'OPEN',
+  category,
   to,
-}: { title: string; resourceType?: 'packaged' | 'organic'; remaining: number; total: number; allocated: number; fulfilled: number; unit: string; budgetHint?: string; deadline?: string; intendedUse?: string; area?: string; status?: string; to?: string }) {
+}: { title: string; resourceType?: 'packaged' | 'organic'; remaining: string | number; total: string | number; allocated: string | number; fulfilled: string | number; unit: string; budgetHint?: string; deadline?: string; intendedUse?: string; area?: string; status?: string; category?: string; to?: string }) {
   const organic = resourceType === 'organic'
   return (
     <article className="min-w-0 rounded-md border border-border bg-surface wrap-anywhere [&_h2]:m-0 [&_h2]:text-xl [&_h2]:leading-7 [&_h2]:font-semibold flex flex-col items-start gap-4 p-5 shadow-card [&_p]:m-0">
@@ -27,6 +28,7 @@ export default function RequestCard({
         {organic ? 'Bahan organik' : 'Pangan kemasan'}
       </span>
       <h2>{to ? <Link to={to}>{title}</Link> : title}</h2>
+      {category && <p className="text-sm text-muted">Kategori: {category}</p>}
       <div className="font-semibold leading-[1.556]">
         <p>
           Sisa kebutuhan {remaining} {unit}
