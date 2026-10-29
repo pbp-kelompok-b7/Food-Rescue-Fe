@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
+import { useAuth } from '../../auth/useAuth.ts'
 import PageState from '../../components/PageState.tsx'
 import FilterSheet from '../../components/resources/FilterSheet.tsx'
 import RequestCard from '../../components/resources/RequestCard.tsx'
@@ -9,6 +10,10 @@ import Button from '../../components/ui/Button.tsx'
 import FormField from '../../components/ui/FormField.tsx'
 import Input from '../../components/ui/Input.tsx'
 import Select from '../../components/ui/Select.tsx'
+import Alert from '../../components/ui/Alert.tsx'
+import Badge from '../../components/ui/Badge.tsx'
+import { ApiError } from '../../services/api.ts'
+import RequestActions from './RequestActions.tsx'
 import { requestsApi, type RequestPage } from '../../services/requests.ts'
 import { budgetText, deadlineText, quantityText, requestError, requestLabel } from './model.ts'
 
@@ -19,41 +24,50 @@ const orders = [
   { value: 'valid_until', label: 'Batas waktu terdekat' }, { value: '-valid_until', label: 'Batas waktu terjauh' },
 ]
 
-export default function BrowseRequests() {
+export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
   const [params, setParams] = useSearchParams()
+  const auth = useAuth()
+  const location = useLocation()
   const reference = useReferenceData()
   const q = params.get('q') || ''
   const area = params.get('area') || ''
   const pageValue = params.get('page') || '1'
   const page = /^[1-9]\d*$/.test(pageValue) && Number.isSafeInteger(Number(pageValue)) ? Number(pageValue) : 1
   const ordering = params.get('ordering') || '-created_at'
+  const status = mine ? params.get('status') || '' : ''
+  const statuses = ['OPEN', 'ALLOCATED', 'FULFILLED', 'CLOSED', 'EXPIRED']
   const active = Object.fromEntries(Object.keys(blankFilters).map(key => [key, params.get(key) || ''])) as Filters
   const [filters, setFilters] = useState(active)
   const [sheet, setSheet] = useState(false)
   const [searchError, setSearchError] = useState<string>()
   const [attempt, setAttempt] = useState(0)
+  const [notice, setNotice] = useState<string>(location.state?.requestNotice || '')
   const [result, setResult] = useState<{ key: string; data?: RequestPage; error?: unknown }>({ key: '' })
   // Public browsing cannot be changed into private history by incoming URL fields.
   const query = new URLSearchParams({ page: String(page), page_size: '20', ordering })
+  if (mine) query.set('scope', 'mine')
+  if (status) query.set('status', status)
   if (q) query.set('q', q)
   if (area) query.set('area', area)
   Object.entries(active).forEach(([name, value]) => { if (value) query.set(name, value) })
-  const key = query.toString()
+  const apiKey = query.toString()
+  const key = mine ? `${apiKey}:${auth.status}:${auth.user?.id || ''}` : apiKey
+  const readable = !mine || auth.status === 'authenticated'
   const [filterKey, setFilterKey] = useState(key)
   if (filterKey !== key) { setFilterKey(key); setFilters(active) }
-  const invalidQuery = Boolean((q && (q.trim().length < 2 || q.length > 100)) || area.length > 100 || (area && !area.trim()) || !orders.some(option => option.value === ordering) || pageValue !== String(page))
+  const invalidQuery = Boolean((q && (q.trim().length < 2 || q.length > 100)) || area.length > 100 || (area && !area.trim()) || !orders.some(option => option.value === ordering) || pageValue !== String(page) || (status && !statuses.includes(status)))
   useEffect(() => {
     const controller = new AbortController()
-    if (!invalidQuery) requestsApi.list(Object.fromEntries(new URLSearchParams(key)), { signal: controller.signal }).then(data => {
+    if (!invalidQuery && readable) requestsApi.list(Object.fromEntries(new URLSearchParams(apiKey)), { signal: controller.signal }).then(data => {
       if (!controller.signal.aborted) setResult({ key, data })
     }).catch(error => {
       if (!controller.signal.aborted) setResult({ key, error })
     })
     return () => controller.abort()
-  }, [key, attempt, invalidQuery])
+  }, [key, apiKey, attempt, invalidQuery, readable])
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState !== 'hidden') { setResult({ key }); setAttempt(value => value + 1) }
+      if (document.visibilityState !== 'hidden' && !document.querySelector('dialog[open]')) { setResult({ key }); setAttempt(value => value + 1) }
     }
     window.addEventListener('focus', refresh)
     document.addEventListener('visibilitychange', refresh)
@@ -62,7 +76,7 @@ export default function BrowseRequests() {
 
   function update(values: Record<string, string>, reset = false) {
     const next = reset ? new URLSearchParams() : new URLSearchParams(params)
-    next.delete('page'); next.delete('scope'); next.delete('status')
+    next.delete('page'); next.delete('scope'); if (!mine) next.delete('status')
     Object.entries(values).forEach(([name, value]) => value ? next.set(name, value) : next.delete(name))
     setParams(next)
   }
@@ -77,17 +91,21 @@ export default function BrowseRequests() {
   }
   function reset() { setFilters(blankFilters); setSearchError(undefined); update({}, true); setSheet(false) }
   function retry() { setResult({ key }); setAttempt(value => value + 1) }
-  const data = !invalidQuery && result.key === key ? result.data : undefined
-  const error = !invalidQuery && result.key === key ? result.error : undefined
+  function changed(message: string) { setNotice(message); if (message) setResult({ key }); setAttempt(value => value + 1) }
+  const data = readable && !invalidQuery && result.key === key ? result.data : undefined
+  const error = readable && !invalidQuery && result.key === key ? result.error : undefined
   const pending = !data && error === undefined && !invalidQuery
+  const { clearSession } = auth
+  useEffect(() => { if (mine && error instanceof ApiError && error.status === 401) clearSession() }, [mine, error, clearSession])
   useEffect(() => {
     const now = Date.now()
     const deadlines = data?.results.map(request => Date.parse(request.valid_until)).filter(value => Number.isFinite(value) && value > now) || []
     if (!deadlines.length) return
-    const timer = setTimeout(() => { setResult({ key }); setAttempt(value => value + 1) }, Math.min(Math.min(...deadlines) - now + 50, 2_147_483_647))
+    const timer = setTimeout(() => { if (!document.querySelector('dialog[open]')) setResult({ key }); setAttempt(value => value + 1) }, Math.min(Math.min(...deadlines) - now + 50, 2_147_483_647))
     return () => clearTimeout(timer)
   }, [data, key])
   const filterControls = <div className="flex flex-col gap-3">
+    {mine && <FormField label="Status"><Select name="status" value={status} onChange={event => update({ status: event.target.value })} placeholder="Semua status" options={statuses.map(value => ({ value, label: requestLabel(value) }))} /></FormField>}
     {reference.status === 'loading' && <p role="status">Memuat pilihan filter…</p>}
     {reference.status === 'error' && <><p className="text-sm text-muted">Pilihan resource belum tersedia. Pencarian dan filter donasi tetap dapat digunakan.</p><Button variant="secondary" onClick={reference.retry}>Muat pilihan filter</Button></>}
     {reference.status === 'ready' && <>
@@ -100,7 +118,8 @@ export default function BrowseRequests() {
     <Button variant="secondary" onClick={reset}>Reset</Button>
   </div>
   return <div className="flex flex-col gap-6">
-    <header className="flex flex-col gap-3"><p className="m-0 text-xs font-semibold text-primary">REQUEST BOARD</p><div className="flex flex-wrap items-center justify-between gap-4"><h1 className="m-0 font-brand text-2xl font-semibold text-primary nav:text-[32px]">Temukan kebutuhan, berikan manfaat.</h1><Link className="fr-button" to="/requests/new">Buat request</Link></div><p className="m-0 text-muted">Bantu penuhi kebutuhan makanan kemasan dan bahan organik di sekitarmu.</p></header>
+    <header className="flex flex-col gap-3"><p className="m-0 text-xs font-semibold text-primary">REQUEST BOARD</p><div className="flex flex-wrap items-center justify-between gap-4"><h1 className="m-0 font-brand text-2xl font-semibold text-primary nav:text-[32px]">{mine ? 'Request saya' : 'Temukan kebutuhan, berikan manfaat.'}</h1><Link className="fr-button" to="/requests/new">Buat request</Link></div><p className="m-0 text-muted">{mine ? 'Kelola kebutuhan dan lihat histori semua status, termasuk request yang diarsipkan.' : 'Bantu penuhi kebutuhan makanan kemasan dan bahan organik di sekitarmu.'}</p></header>
+    {notice && <Alert tone="success" title={notice} />}
     <form key={`${q}:${area}`} role="search" onSubmit={search} className="grid items-end gap-3 nav:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
       <FormField label="Cari kebutuhan" error={searchError}><Input name="q" defaultValue={q} maxLength={100} placeholder="Kategori atau peruntukan resource" /></FormField>
       <FormField label="Area" hint="Nama area harus sama; tanpa pencarian radius."><Input name="area" defaultValue={area} maxLength={100} placeholder="Semua area" /></FormField><Button type="submit">Cari</Button>
@@ -110,13 +129,13 @@ export default function BrowseRequests() {
     <div className="grid items-start gap-6 nav:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="hidden flex-col gap-3 rounded-md bg-surface p-4 nav:flex"><h2 className="m-0 text-lg">Saring kebutuhan</h2>{!sheet && filterControls}</aside>
       <section aria-label="Hasil pencarian kebutuhan" aria-busy={pending} className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-4"><div><h2 className="m-0 text-lg">Kebutuhan terbuka</h2><p role="status" className="m-0 text-sm text-muted">{data ? `${data.count} request ditemukan` : 'Temukan kebutuhan yang sesuai.'}</p></div><FormField label="Urutkan"><Select name="ordering" value={ordering} onChange={event => update({ ordering: event.target.value })} options={orders} /></FormField><Button variant="secondary" onClick={retry}>Perbarui hasil</Button></div>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4"><div><h2 className="m-0 text-lg">{mine ? 'Histori kebutuhan' : 'Kebutuhan terbuka'}</h2><p role="status" className="m-0 text-sm text-muted">{data ? `${data.count} request ditemukan` : 'Temukan kebutuhan yang sesuai.'}</p></div><FormField label="Urutkan"><Select name="ordering" value={ordering} onChange={event => update({ ordering: event.target.value })} options={orders} /></FormField><Button variant="secondary" onClick={retry}>Perbarui hasil</Button></div>
         {invalidQuery && <PageState error title="Pencarian tidak valid" action={<Button onClick={reset}>Reset pencarian</Button>}>Periksa kata pencarian, area, urutan, dan nomor halaman.</PageState>}
         {pending && <p role="status">Memuat kebutuhan…</p>}
         {error !== undefined && <PageState error title="Kebutuhan belum dapat dimuat" action={<div className="flex flex-wrap gap-3"><Button onClick={retry}>Coba lagi</Button><Button variant="secondary" onClick={reset}>Reset pencarian</Button></div>}>{requestError(error)}</PageState>}
         {data && (data.results.length ? <><div className="grid items-start gap-4 xl:grid-cols-2">{data.results.map(request => {
           const category = reference.data?.categories.find(item => item.code === request.category)?.label || requestLabel(request.category)
-          return <RequestCard key={request.id} title={`Kebutuhan ${category}`} category={category} resourceType={request.resource_type === 'COMPOSTABLE_FOOD_WASTE' ? 'organic' : 'packaged'} remaining={quantityText(request.quantity_remaining)} total={quantityText(request.quantity_needed)} allocated={quantityText(request.quantity_allocated)} fulfilled={quantityText(request.quantity_fulfilled)} unit={request.unit} budgetHint={budgetText(request)} deadline={deadlineText(request.valid_until)} intendedUse={requestLabel(request.intended_use)} area={request.location.area} status={requestLabel(request.status)} to={`/requests/${request.id}`} />
+          return <div key={request.id} className="flex min-w-0 flex-col gap-3"><RequestCard title={`Kebutuhan ${category}`} category={category} resourceType={request.resource_type === 'COMPOSTABLE_FOOD_WASTE' ? 'organic' : 'packaged'} remaining={quantityText(request.quantity_remaining)} total={quantityText(request.quantity_needed)} allocated={quantityText(request.quantity_allocated)} fulfilled={quantityText(request.quantity_fulfilled)} unit={request.unit} budgetHint={budgetText(request)} deadline={deadlineText(request.valid_until)} intendedUse={requestLabel(request.intended_use)} area={request.location.area} status={requestLabel(request.status)} to={`/requests/${request.id}`} />{mine && <>{request.archived_at && <Badge>Diarsipkan</Badge>}<RequestActions request={request} inHistory onChanged={changed} /></>}</div>
         })}</div><nav aria-label="Halaman kebutuhan" className="mt-6 flex flex-wrap items-center justify-center gap-4"><Button variant="secondary" disabled={!data.previous || page <= 1} onClick={() => setParams({ ...Object.fromEntries(params), page: String(page - 1) })}>Sebelumnya</Button><span aria-current="page">Halaman {page}</span><Button variant="secondary" disabled={!data.next} onClick={() => setParams({ ...Object.fromEntries(params), page: String(page + 1) })}>Berikutnya</Button></nav></> : <PageState title="Belum ada kebutuhan yang sesuai" action={<Button variant="secondary" onClick={reset}>Reset pencarian</Button>}>Coba kata pencarian atau filter lain.</PageState>)}
       </section>
     </div>

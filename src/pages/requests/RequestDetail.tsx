@@ -9,6 +9,7 @@ import Alert from '../../components/ui/Alert.tsx'
 import { ApiError } from '../../services/api.ts'
 import { requestsApi, type ResourceRequest } from '../../services/requests.ts'
 import { acceptingOffers, budgetText, deadlineText, quantityText, requestError, requestLabel } from './model.ts'
+import RequestActions from './RequestActions.tsx'
 
 export default function RequestDetail() {
   const { id = '' } = useParams()
@@ -19,6 +20,7 @@ export default function RequestDetail() {
   const key = `${id}:${auth.status}:${auth.user?.id || ''}`
   const [result, setResult] = useState<{ key: string; data?: ResourceRequest; error?: unknown }>({ key: '' })
   const [attempt, setAttempt] = useState(0)
+  const [notice, setNotice] = useState('')
   const retry = useCallback(() => { setResult({ key }); setAttempt(value => value + 1) }, [key])
   useEffect(() => {
     const controller = new AbortController()
@@ -30,7 +32,7 @@ export default function RequestDetail() {
     return () => controller.abort()
   }, [id, key, attempt])
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState !== 'hidden') retry() }
+    const refresh = () => { if (document.visibilityState !== 'hidden' && !document.querySelector('dialog[open]')) retry() }
     window.addEventListener('focus', refresh)
     document.addEventListener('visibilitychange', refresh)
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
@@ -42,7 +44,7 @@ export default function RequestDetail() {
     const remaining = Date.parse(request.valid_until) - Date.now()
     if (remaining <= 0 || !Number.isFinite(remaining)) return
     // Re-read the server at this request's deadline; no background expiry writes.
-    const timer = setTimeout(retry, Math.min(remaining + 50, 2_147_483_647))
+    const timer = setTimeout(() => { if (document.querySelector('dialog[open]')) setAttempt(value => value + 1); else retry() }, Math.min(remaining + 50, 2_147_483_647))
     return () => clearTimeout(timer)
   }, [request, retry])
   if (error !== undefined) return <PageState error title={error instanceof ApiError && error.status === 404 ? 'Request tidak ditemukan' : 'Request belum dapat dibuka'} action={<div className="flex flex-wrap gap-3"><Button onClick={retry}>Coba lagi</Button><Link className="fr-button" to="/requests">Kembali ke Request Board</Link></div>}>{requestError(error)}</PageState>
@@ -52,6 +54,7 @@ export default function RequestDetail() {
   const offerTo = `/requests/${request.id}/offer`
   const offerAction = owner ? <p className="m-0 text-sm text-muted">Ini request milikmu. Kamu tidak dapat menawarkan resource ke request sendiri.</p> : !acceptingOffers(request) ? <><Button disabled className="w-full">Request tidak menerima penawaran</Button><p className="m-0 text-sm text-muted">Periksa status, sisa kebutuhan, dan batas waktu request.</p></> : auth.status === 'loading' ? <Button disabled className="w-full">Memeriksa sesi…</Button> : auth.status === 'error' ? <Button variant="secondary" onClick={() => auth.refresh()}>Periksa sesi lagi</Button> : <Link className="fr-button w-full" to={auth.status === 'anonymous' ? '/login' : offerTo} state={auth.status === 'anonymous' ? { from: offerTo } : undefined}>Tawarkan resource</Link>
   return <article className="flex flex-col gap-6 wrap-anywhere">
+    {notice && <Alert tone="success" title={notice} />}
     {location.state?.requestSaved && <Alert tone="success" title={location.state.requestSaved === 'created' ? 'Request berhasil diterbitkan.' : 'Perubahan request berhasil disimpan.'} />}
     <Link className="inline-flex min-h-11 items-center self-start text-sm" to="/requests">← Kembali ke Request Board</Link>
     <header className="flex flex-col gap-3"><p className="m-0 text-xs font-semibold text-primary">REQUEST BOARD / DETAIL</p><h1 className="m-0 font-brand text-2xl font-semibold text-primary nav:text-[32px]">Kebutuhan {category}</h1><div className="flex flex-wrap gap-2"><Badge status={request.status}>{requestLabel(request.status)}</Badge>{request.archived_at && <Badge>Diarsipkan</Badge>}<Badge tone={request.resource_type === 'COMPOSTABLE_FOOD_WASTE' ? 'neutral' : 'warning'}>{requestLabel(request.resource_type)}</Badge></div></header>
@@ -63,5 +66,6 @@ export default function RequestDetail() {
       </div>
       <aside className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-surface p-5 nav:sticky nav:top-6"><h2 className="m-0 text-xl">Bantu penuhi kebutuhan</h2><p className="m-0 text-sm">{budgetText(request)}</p><p className="m-0 text-sm text-muted">Tawarkan resource langsung tanpa membuat listing publik. Pemilik request akan meninjau penawaranmu.</p>{offerAction}{(owner || (auth.status === 'authenticated' && auth.user?.is_admin)) && <Link className="fr-button w-full" to={`/requests/${request.id}/edit`}>Edit request</Link>}<Button variant="secondary" onClick={retry}>Perbarui status</Button><p className="m-0 text-xs text-muted">Kontak hanya tersedia melalui detail reservasi setelah penawaran diterima.</p></aside>
     </div>
+    <RequestActions request={request} onChanged={message => { setNotice(message); if (message) retry(); else setAttempt(value => value + 1) }} />
   </article>
 }

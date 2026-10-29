@@ -4,7 +4,7 @@ import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import AuthProvider from '../../auth/AuthProvider.tsx'
 import { useAuth } from '../../auth/useAuth.ts'
-import { acceptingOffers, budgetText } from './model.ts'
+import { acceptingOffers, budgetText, canCloseRequest } from './model.ts'
 import type { ResourceRequest } from '../../services/requests.ts'
 import BrowseRequests from './BrowseRequests.tsx'
 import RequestDetail from './RequestDetail.tsx'
@@ -67,12 +67,16 @@ let writeCode: string
 let writeField: string | null
 let csrfStatus: number
 let writeHandler: (() => Promise<Response>) | undefined
+let archiveOnDelete: boolean
 let calls: { url: URL; method: string; signal: AbortSignal | null | undefined; credentials: RequestCredentials | undefined; body: Record<string, unknown> | null; csrf: string | null }[]
 function SessionControls() { const auth = useAuth(); return <><button onClick={auth.clearSession}>Logout test</button><Outlet /></> }
 async function settle() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) }) }
 async function mount(path = '/requests', viewer: number | null = null, referenceResponseStatus = 200, staff = false) {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', '') } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute('open') } })
   request = structuredClone(fixture); detailStatus = 200; listStatus = 200; referenceStatus = referenceResponseStatus; sessionStatus = 200; userId = viewer; listResults = [request]; calls = []; listHandler = undefined; detailHandler = undefined
   writeStatus = 200; writeCode = 'validation_error'; writeField = null; csrfStatus = 200; writeHandler = undefined
+  archiveOnDelete = false
   vi.stubGlobal('fetch', vi.fn(async (path: string, options: RequestInit) => {
     const url = new URL(path, 'http://localhost')
     const method = options.method || 'GET'
@@ -81,21 +85,34 @@ async function mount(path = '/requests', viewer: number | null = null, reference
     if (url.pathname.endsWith('session/')) return sessionStatus === 200 ? ok({ authenticated: userId !== null, user: userId === null ? null : { id: userId, display_name: 'Viewer', is_admin: staff } }) : failure(sessionStatus)
     if (url.pathname.endsWith('csrf/')) return csrfStatus === 200 ? ok({ csrf_token: 'request-token' }) : failure(csrfStatus, 'csrf_failed')
     if (url.pathname.endsWith('locations/search/')) return ok({ results: [{ ...fixture.location, attribution: '© OpenStreetMap contributors' }] })
-    if (['POST', 'PATCH'].includes(method)) {
+    if (['POST', 'PATCH', 'DELETE'].includes(method)) {
       if (writeHandler) return writeHandler()
       if (writeStatus >= 400) return Response.json({ success: false, message: 'Secret traceback', errors: [{ field: writeField, code: writeCode, message: writeField ? 'Informasi ditolak server.' : 'Private backend details' }] }, { status: writeStatus })
+      if (method === 'DELETE') {
+        if (archiveOnDelete) {
+          request = { ...request, archived_at: '2026-10-29T01:00:00Z', status: ['OPEN', 'ALLOCATED'].includes(request.status) ? 'CLOSED' : request.status }
+          listResults = listResults.map(value => value.id === request.id ? request : value)
+        } else { listResults = listResults.filter(value => value.id !== request.id); detailStatus = 404 }
+        return new Response(null, { status: 204 })
+      }
+      if (url.pathname.endsWith('close/')) {
+        request = { ...request, status: 'CLOSED' }; listResults = listResults.map(value => value.id === request.id ? request : value); return ok(request)
+      }
       request = { ...request, ...body, id: method === 'POST' ? 8 : request.id, version: request.version + 1 }
       return ok(request)
     }
     if (url.pathname.endsWith('reference-data/')) return referenceStatus === 200 ? ok(references) : failure(referenceStatus)
-    if (url.pathname.endsWith('requests/')) return listHandler ? listHandler(url) : listStatus === 200 ? ok({ count: listResults.length ? 21 : 0, next: listResults.length ? '/api/v1/requests/?page=2' : null, previous: url.searchParams.get('page') === '2' ? '/api/v1/requests/?page=1' : null, results: listResults.map(value => ({ ...value, whatsapp_number: '+628120000000', email: 'private@example.test' })) }) : failure(listStatus, listStatus === 404 ? 'page_not_found' : 'server_error')
+    if (url.pathname.endsWith('requests/')) {
+      const results = listResults.filter(value => url.searchParams.get('scope') !== 'mine' || value.owner.id === userId)
+      return listHandler ? listHandler(url) : listStatus === 200 ? ok({ count: results.length ? 21 : 0, next: results.length ? '/api/v1/requests/?page=2' : null, previous: url.searchParams.get('page') === '2' ? '/api/v1/requests/?page=1' : null, results: results.map(value => ({ ...value, whatsapp_number: '+628120000000', email: 'private@example.test' })) }) : failure(listStatus, listStatus === 404 ? 'page_not_found' : 'server_error')
+    }
     if (/\/requests\/\d+\/$/.test(url.pathname)) return detailHandler ? detailHandler() : detailStatus === 200 ? ok({ ...request, whatsapp_number: '+628120000000', email: 'private@example.test' }) : failure(detailStatus)
     throw new Error(`Unexpected request ${url.pathname}`)
   }))
   container = document.createElement('div'); document.body.append(container); root = createRoot(container)
   router = createMemoryRouter([{ element: <AuthProvider><SessionControls /></AuthProvider>, children: [
     { path: '/requests', element: <BrowseRequests /> }, { path: '/requests/:id', element: <RequestDetail /> },
-    { element: <RequireAuth />, children: [{ path: '/requests/new', element: <RequestForm /> }, { path: '/requests/:id/edit', element: <EditRequest /> }] },
+    { element: <RequireAuth />, children: [{ path: '/requests/new', element: <RequestForm /> }, { path: '/requests/:id/edit', element: <EditRequest /> }, { path: '/my/requests', element: <BrowseRequests mine /> }] },
     { path: '/login', element: <h1>Masuk</h1> }, { path: '/requests/:id/offer', element: <h1>Form offer</h1> },
   ] }], { initialEntries: [path] })
   await act(async () => root.render(<RouterProvider router={router} />)); await settle()
@@ -109,9 +126,9 @@ async function select(name: string, value: string) {
   await act(async () => { element.value = value; element.dispatchEvent(new Event('change', { bubbles: true })) })
 }
 async function input(name: string, value: string) {
-  const element = container.querySelector<HTMLInputElement>(`[name="${name}"]`)!
+  const element = container.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)!
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(element, value)
+    Object.getOwnPropertyDescriptor(element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value')!.set!.call(element, value)
     element.dispatchEvent(new Event('input', { bubbles: true }))
   })
 }
@@ -299,7 +316,7 @@ it('uses the PR37 catalog labels and restricts all categories/uses to the chosen
   expect(values('intended_use')).toEqual(['', 'COMPOSTING', 'BSF', 'ANIMAL_FEED', 'UPCYCLING'])
 })
 
-const writes = () => calls.filter(call => ['POST', 'PATCH'].includes(call.method))
+const writes = () => calls.filter(call => ['POST', 'PATCH', 'DELETE'].includes(call.method))
 async function completeRequest() {
   await select('resource_type', food); await select('category', 'prepared_meal'); await select('intended_use', 'HUMAN_CONSUMPTION')
   await input('quantity_needed', '20'); await select('unit', 'box'); await input('valid_until', '2099-11-01T17:30')
@@ -442,4 +459,130 @@ it('validates exact decimal boundaries and serializes request fields without pro
   expect(requestChanges(unchanged, fixture)).toEqual({})
   expect(requestPayload(unchanged)).not.toHaveProperty('status')
   expect(requestPayload(unchanged)).not.toHaveProperty('owner')
+})
+it('loads owner history with fixed scope and keeps status across pagination/search', async () => {
+  await mount('/my/requests?scope=public&status=CLOSED&page=2', 1)
+  expect(listCalls()[0].url.searchParams.get('scope')).toBe('mine')
+  expect(listCalls()[0].url.searchParams.get('status')).toBe('CLOSED')
+  await input('q', 'meal'); await submit()
+  expect(router.state.location.search).toContain('status=CLOSED')
+  expect(router.state.location.search).not.toContain('page=')
+  await select('status', 'ALLOCATED'); expect(listCalls().at(-1)!.url.searchParams.get('status')).toBe('ALLOCATED')
+  await click('Reset'); expect(listCalls().at(-1)!.url.searchParams.get('scope')).toBe('mine')
+})
+it('guards anonymous history and never requests private data before login', async () => {
+  await mount('/my/requests')
+  expect(router.state.location.pathname).toBe('/login')
+  expect(listCalls()).toHaveLength(0)
+})
+it('displays an empty owner history rather than other users records', async () => {
+  await mount('/my/requests', 2)
+  expect(container.textContent).toContain('Belum ada kebutuhan yang sesuai')
+  expect(container.querySelector('a[href="/requests/7"]')).toBeNull()
+})
+it.each(['OPEN', 'ALLOCATED', 'FULFILLED', 'CLOSED', 'EXPIRED'])('supports historical status %s and archived indicators', async status => {
+  await mount('/my/requests', 1); request.status = status; request.archived_at = '2026-10-01T00:00:00Z'
+  await click('Perbarui hasil')
+  expect(container.textContent).toContain('Diarsipkan')
+  expect(container.textContent).toContain('12.125 kg')
+  expect(container.querySelector('a[href="/requests/7/edit"]')).not.toBeNull()
+})
+it('requires a reason and sends a trimmed close body with CSRF before refreshing history', async () => {
+  await mount('/my/requests', 1); await click('Tutup request')
+  expect(container.textContent).toContain('Reservasi ACCEPTED, alokasi, dan pickup')
+  await click('Ya, tutup request'); expect(writes()).toHaveLength(0)
+  expect(container.querySelector('[name="close_reason"]')!.getAttribute('aria-invalid')).toBe('true')
+  await input('close_reason', '  Kebutuhan sudah cukup.  '); await click('Ya, tutup request')
+  expect(writes()[0]).toMatchObject({ method: 'POST', csrf: 'request-token', body: { reason: 'Kebutuhan sudah cukup.' } })
+  expect(writes()[0].url.pathname).toBe('/api/v1/requests/7/close/')
+  expect(container.textContent).toContain('Request berhasil ditutup')
+  expect(container.textContent).toContain('Ditutup')
+  expect(container.querySelector('[name="close_reason"]')).toBeNull()
+})
+it('cancels confirmation without sending a write', async () => {
+  await mount('/my/requests', 1); await click('Hapus / arsipkan'); await click('Batal')
+  expect(writes()).toHaveLength(0)
+  expect(container.querySelector('dialog[open]')).toBeNull()
+})
+it('handles empty DELETE 204 without a body and reloads the list', async () => {
+  await mount('/my/requests', 1); await click('Hapus / arsipkan')
+  expect(container.textContent).toContain('termasuk reservasi ditolak atau dibatalkan')
+  await click('Ya, hapus / arsipkan')
+  expect(writes()[0]).toMatchObject({ method: 'DELETE', body: null, csrf: 'request-token' })
+  expect(container.querySelector('a[href="/requests/7"]')).toBeNull()
+  expect(container.textContent).toContain('Request berhasil dihapus atau diarsipkan')
+})
+it('uses server archival results even when quantity counters do not reveal the history', async () => {
+  await mount('/my/requests', 1); archiveOnDelete = true; request.quantity_allocated = '0.000'; request.quantity_fulfilled = '0.000'
+  await click('Hapus / arsipkan'); await click('Ya, hapus / arsipkan')
+  expect(container.textContent).toContain('Diarsipkan')
+  expect(container.querySelector('a[href="/requests/7"]')).not.toBeNull()
+  expect([...container.querySelectorAll('button')].some(button => button.textContent === 'Hapus / arsipkan')).toBe(false)
+})
+it('returns from detail to refreshed owner history after delete', async () => {
+  await mount('/requests/7', 1); await click('Hapus / arsipkan'); await click('Ya, hapus / arsipkan')
+  expect(router.state.location.pathname).toBe('/my/requests')
+  expect(container.textContent).toContain('Request berhasil dihapus atau diarsipkan')
+})
+it('retains the close draft and maps server reason validation inline', async () => {
+  await mount('/my/requests', 1); await click('Tutup request'); await input('close_reason', 'Alasan saya')
+  writeStatus = 400; writeField = 'reason'; await click('Ya, tutup request')
+  expect(container.querySelector<HTMLTextAreaElement>('[name="close_reason"]')!.value).toBe('Alasan saya')
+  expect(container.querySelector('[name="close_reason"]')!.getAttribute('aria-invalid')).toBe('true')
+  expect(container.textContent).toContain('Informasi ditolak server')
+})
+it('retains a close draft on conflict while refreshing changed server data', async () => {
+  await mount('/my/requests', 1); await click('Tutup request'); await input('close_reason', 'Sudah cukup')
+  request.status = 'CLOSED'; writeStatus = 409; writeCode = 'invalid_transition'; await click('Ya, tutup request')
+  expect(container.textContent).toContain('Request sudah berubah')
+  expect(container.textContent).toContain('Ditutup')
+  expect(container.querySelector<HTMLTextAreaElement>('[name="close_reason"]')!.value).toBe('Sudah cukup')
+  expect(container.textContent).not.toContain('Request berhasil ditutup')
+})
+it.each([403, 404, 500, 501])('handles failed close %i without a false success or exposing internals', async status => {
+  await mount('/my/requests', 1); await click('Tutup request'); await input('close_reason', 'Alasan saya'); writeStatus = status; await click('Ya, tutup request')
+  expect(container.textContent).toContain('Tindakan belum berhasil')
+  expect(container.textContent).not.toMatch(/Secret traceback|Private backend|Request berhasil ditutup/)
+})
+it('redirects an expired close session with the history destination', async () => {
+  await mount('/my/requests?q=meal', 1); await click('Tutup request'); await input('close_reason', 'Alasan saya'); writeStatus = 401; await click('Ya, tutup request')
+  expect(router.state.location.pathname).toBe('/login')
+  expect(router.state.location.state).toEqual({ from: '/my/requests?q=meal' })
+})
+it('prevents duplicate lifecycle writes and modal dismissal during submission', async () => {
+  await mount('/my/requests', 1); await click('Tutup request'); await input('close_reason', 'Alasan saya')
+  let finish: (response: Response) => void = () => {}
+  writeHandler = () => new Promise(resolve => { finish = resolve })
+  await click('Ya, tutup request'); await click('Ya, tutup request')
+  expect(writes()).toHaveLength(1)
+  const dialog = container.querySelector('dialog[open]')!
+  await act(async () => dialog.dispatchEvent(new Event('cancel', { cancelable: true })))
+  expect(dialog.hasAttribute('open')).toBe(true)
+  await act(async () => finish(ok({ ...fixture, status: 'CLOSED' }))); await settle()
+})
+it('keeps lifecycle drafts on window focus and provides a reservations link', async () => {
+  await mount('/my/requests', 1); await click('Tutup request'); await input('close_reason', 'Jangan hilang')
+  await act(async () => window.dispatchEvent(new Event('focus'))); await settle()
+  expect(container.querySelector<HTMLTextAreaElement>('[name="close_reason"]')!.value).toBe('Jangan hilang')
+  expect(container.querySelector('a[href="/reservations?source_type=REQUEST_OFFER"]')).not.toBeNull()
+})
+it('hides lifecycle actions from a non-owner and retains regular staff access', async () => {
+  await mount('/requests/7', 2)
+  expect([...container.querySelectorAll('button')].some(button => button.textContent === 'Tutup request')).toBe(false)
+})
+it('allows staff closure through the regular request route', async () => {
+  await mount('/requests/7', 2, 200, true); await click('Tutup request'); await input('close_reason', 'Staff menutup'); await click('Ya, tutup request')
+  expect(writes()[0].url.pathname).toBe('/api/v1/requests/7/close/')
+})
+it('does not offer close for terminal, expired, archived, or fully fulfilled requests', () => {
+  expect(canCloseRequest({ ...fixture, status: 'ALLOCATED' })).toBe(true)
+  for (const status of ['CLOSED', 'EXPIRED', 'FULFILLED']) expect(canCloseRequest({ ...fixture, status })).toBe(false)
+  expect(canCloseRequest({ ...fixture, valid_until: '2020-01-01T00:00:00Z' })).toBe(false)
+  expect(canCloseRequest({ ...fixture, archived_at: '2026-10-01T00:00:00Z' })).toBe(false)
+  expect(canCloseRequest({ ...fixture, quantity_fulfilled: fixture.quantity_needed })).toBe(false)
+})
+it('clears private owner history immediately after logout', async () => {
+  await mount('/my/requests', 1); await click('Logout test')
+  expect(router.state.location.pathname).toBe('/login')
+  expect(container.querySelector('a[href="/requests/7"]')).toBeNull()
 })

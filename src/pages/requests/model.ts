@@ -25,6 +25,9 @@ export function budgetText(request: ResourceRequest) {
 export function acceptingOffers(request: ResourceRequest, now = Date.now()) {
   return request.status === 'OPEN' && !request.archived_at && Number(request.quantity_remaining) > 0 && Date.parse(request.valid_until) > now
 }
+export function canCloseRequest(request: ResourceRequest, now = Date.now()) {
+  return ['OPEN', 'ALLOCATED'].includes(request.status) && !request.archived_at && Date.parse(request.valid_until) > now && Number(request.quantity_fulfilled) < Number(request.quantity_needed)
+}
 export function requestError(error: unknown) {
   if (error instanceof RangeError) return 'ID request tidak valid.'
   if (error instanceof ApiError) {

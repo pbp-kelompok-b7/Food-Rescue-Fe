@@ -57,4 +57,14 @@ export const requestsApi = {
     await bootstrapCsrf()
     return apiRequest<ResourceRequest>(path, { method: 'PATCH', body })
   },
+  close: async (id: ResourceId, reason: string) => {
+    const path = requestPath(id)
+    await bootstrapCsrf()
+    return apiRequest<ResourceRequest>(`${path}close/`, { method: 'POST', body: { reason } })
+  },
+  remove: async (id: ResourceId) => {
+    const path = requestPath(id)
+    await bootstrapCsrf()
+    return apiRequest<null>(path, { method: 'DELETE' })
+  },
 }
