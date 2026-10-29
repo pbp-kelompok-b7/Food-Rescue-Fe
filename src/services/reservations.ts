@@ -45,7 +45,15 @@ export interface Reservation {
 }
 export interface ReservationPage { count: number; next: string | null; previous: string | null; results: Reservation[] }
 
+// Admin moderation detail adds both parties' contacts in every status (7.4.10).
+export interface AdminReservation extends Reservation {
+  provider_contact: ReservationContact
+  receiver_contact: ReservationContact
+}
+export interface AdminReservationPage { count: number; next: string | null; previous: string | null; results: AdminReservation[] }
+
 const path = (id: ResourceId) => `reservations/${encodeURIComponent(id)}/`
+const adminPath = (id: ResourceId) => `admin/reservations/${encodeURIComponent(id)}/`
 export const reservationsApi = {
   // Claim a listing. Only quantity is sent; the backend derives provider,
   // price, unit, and mode from the listing (contract 7.4.1). CSRF is bootstrapped
@@ -75,5 +83,30 @@ export const reservationsApi = {
   async cancel(id: ResourceId, body: ApiPayload) {
     await bootstrapCsrf()
     return apiRequest<Reservation>(`${path(id)}cancel/`, { method: 'POST', body })
+  },
+}
+
+// Admin moderation endpoints (contract 7.4.9-7.4.14). All actions require a
+// reason for the audit trail; writes bootstrap CSRF. The admin override is
+// authorization only — the backend still enforces every quantity/deadline/state
+// invariant, so the client must reload the authoritative detail after each one.
+export const adminReservationsApi = {
+  list: (params: QueryParams = {}, options: ApiRequestOptions = {}) => apiRequest<AdminReservationPage>(`admin/reservations/?${new URLSearchParams(params)}`, options),
+  detail: (id: ResourceId, options: ApiRequestOptions = {}) => apiRequest<AdminReservation>(adminPath(id), options),
+  async revise(id: ResourceId, body: ApiPayload) {
+    await bootstrapCsrf()
+    return apiRequest<AdminReservation>(adminPath(id), { method: 'PATCH', body })
+  },
+  async accept(id: ResourceId, body: ApiPayload) {
+    await bootstrapCsrf()
+    return apiRequest<AdminReservation>(`${adminPath(id)}accept/`, { method: 'POST', body })
+  },
+  async reject(id: ResourceId, body: ApiPayload) {
+    await bootstrapCsrf()
+    return apiRequest<AdminReservation>(`${adminPath(id)}reject/`, { method: 'POST', body })
+  },
+  async cancel(id: ResourceId, body: ApiPayload) {
+    await bootstrapCsrf()
+    return apiRequest<AdminReservation>(`${adminPath(id)}cancel/`, { method: 'POST', body })
   },
 }
