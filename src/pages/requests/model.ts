@@ -22,6 +22,11 @@ export function budgetText(request: ResourceRequest) {
   const price = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 }).format(Number(request.max_unit_price))
   return `Menerima donasi atau penawaran berbayar · Maksimal ${price} / ${request.unit}`
 }
+export function budgetSummary(request: ResourceRequest) {
+  if (request.donate_only) return 'Donasi saja'
+  if (request.max_unit_price === null) return 'Tanpa batas harga'
+  return `Maks. ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 }).format(Number(request.max_unit_price))} / ${request.unit}`
+}
 export function acceptingOffers(request: ResourceRequest, now = Date.now()) {
   return request.status === 'OPEN' && !request.archived_at && Number(request.quantity_remaining) > 0 && Date.parse(request.valid_until) > now
 }

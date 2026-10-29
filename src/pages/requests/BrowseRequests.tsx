@@ -15,7 +15,7 @@ import Badge from '../../components/ui/Badge.tsx'
 import { ApiError } from '../../services/api.ts'
 import RequestActions from './RequestActions.tsx'
 import { requestsApi, type RequestPage } from '../../services/requests.ts'
-import { budgetText, deadlineText, quantityText, requestError, requestLabel } from './model.ts'
+import { budgetSummary, deadlineText, quantityText, requestError, requestLabel } from './model.ts'
 
 type Filters = Record<'resource_type' | 'category' | 'intended_use' | 'donate_only', string>
 const blankFilters: Filters = { resource_type: '', category: '', intended_use: '', donate_only: '' }
@@ -38,6 +38,7 @@ export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
   const statuses = ['OPEN', 'ALLOCATED', 'FULFILLED', 'CLOSED', 'EXPIRED']
   const active = Object.fromEntries(Object.keys(blankFilters).map(key => [key, params.get(key) || ''])) as Filters
   const [filters, setFilters] = useState(active)
+  const [filterArea, setFilterArea] = useState(area)
   const [sheet, setSheet] = useState(false)
   const [searchError, setSearchError] = useState<string>()
   const [attempt, setAttempt] = useState(0)
@@ -55,7 +56,7 @@ export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
   const key = mine ? `${apiKey}:${auth.status}:${auth.user?.id || ''}` : apiKey
   const readable = !mine || auth.status === 'authenticated'
   const [filterKey, setFilterKey] = useState(key)
-  if (filterKey !== key) { setFilterKey(key); setFilters(active) }
+  if (filterKey !== key) { setFilterKey(key); setFilters(active); setFilterArea(area) }
   const invalidQuery = Boolean((q && (q.trim().length < 2 || q.length > 100)) || area.length > 100 || (area && !area.trim()) || !orders.some(option => option.value === ordering) || pageValue !== String(page) || (status && !statuses.includes(status)))
   useEffect(() => {
     const controller = new AbortController()
@@ -115,34 +116,39 @@ export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
     {reference.status === 'error' && <><p className="text-sm text-muted">Pilihan resource belum tersedia. Pencarian dan filter donasi tetap dapat digunakan.</p><Button variant="secondary" onClick={reference.retry}>Muat pilihan filter</Button></>}
     {reference.status === 'ready' && <>
       <FormField label="Jenis resource"><Select name="resource_type" value={filters.resource_type} onChange={event => setFilters({ ...filters, resource_type: event.target.value, category: '', intended_use: '' })} placeholder="Semua jenis" options={reference.data.resource_types.map(item => ({ value: item.code, label: requestLabel(item.code) }))} /></FormField>
-      <FormField label="Kategori"><Select name="category" value={filters.category} onChange={event => setFilters({ ...filters, category: event.target.value })} placeholder="Semua kategori" options={reference.data.categories.filter(item => !filters.resource_type || item.resource_type === filters.resource_type).map(item => ({ value: item.code, label: item.label }))} /></FormField>
-      <FormField label="Peruntukan"><Select name="intended_use" value={filters.intended_use} onChange={event => setFilters({ ...filters, intended_use: event.target.value })} placeholder="Semua peruntukan" options={(filters.resource_type ? suitabilityOptions(reference.data, filters.resource_type) : reference.data.suitabilities).map(item => ({ value: item.code, label: requestLabel(item.code) }))} /></FormField>
     </>}
-    <FormField label="Preferensi donasi"><Select name="donate_only" value={filters.donate_only} onChange={event => setFilters({ ...filters, donate_only: event.target.value })} placeholder="Semua preferensi" options={[{ value: 'true', label: 'Hanya donasi' }, { value: 'false', label: 'Donasi atau berbayar' }]} /></FormField>
-    <Button onClick={() => { update(filters); setSheet(false) }}>Terapkan filter</Button>
+    <FormField label="Preferensi harga"><Select name="donate_only" value={filters.donate_only} onChange={event => setFilters({ ...filters, donate_only: event.target.value })} placeholder="Semua preferensi" options={[{ value: 'true', label: 'Donasi saja' }, { value: 'false', label: 'Donasi atau berbayar' }]} /></FormField>
+    <Button onClick={() => { update({ ...filters, ...(sheet ? { area: filterArea.trim() } : {}) }); setSheet(false) }}>Terapkan filter</Button>
     <Button variant="secondary" onClick={reset}>Reset</Button>
+    <details className="request-advanced" open={Boolean(active.category || active.intended_use || ordering !== '-created_at') || undefined}><summary>Filter lainnya</summary><div className="mt-3 flex flex-col gap-3">
+      {sheet && <FormField label="Area"><Input name="filter_area" value={filterArea} maxLength={100} onChange={event => setFilterArea(event.target.value)} placeholder="Kota atau area" /></FormField>}
+      {reference.status === 'ready' && <><FormField label="Kategori"><Select name="category" value={filters.category} onChange={event => setFilters({ ...filters, category: event.target.value })} placeholder="Semua kategori" options={reference.data.categories.filter(item => !filters.resource_type || item.resource_type === filters.resource_type).map(item => ({ value: item.code, label: item.label }))} /></FormField><FormField label="Peruntukan"><Select name="intended_use" value={filters.intended_use} onChange={event => setFilters({ ...filters, intended_use: event.target.value })} placeholder="Semua peruntukan" options={(filters.resource_type ? suitabilityOptions(reference.data, filters.resource_type) : reference.data.suitabilities).map(item => ({ value: item.code, label: requestLabel(item.code) }))} /></FormField></>}
+      <FormField label="Urutkan"><Select name="ordering" value={ordering} onChange={event => update({ ordering: event.target.value })} options={orders} /></FormField>
+    </div></details>
   </div>
-  return <div className="flex flex-col gap-6">
-    <header className="flex flex-col gap-3"><p className="m-0 text-xs font-semibold text-primary">REQUEST BOARD</p><div className="flex flex-wrap items-center justify-between gap-4"><h1 className="m-0 font-brand text-2xl font-semibold text-primary nav:text-[32px]">{mine ? 'Request saya' : 'Temukan kebutuhan, berikan manfaat.'}</h1><Link className="fr-button" to="/requests/new">Buat request</Link></div><p className="m-0 text-muted">{mine ? 'Kelola kebutuhan dan lihat histori semua status, termasuk request yang diarsipkan.' : 'Bantu penuhi kebutuhan makanan kemasan dan bahan organik di sekitarmu.'}</p></header>
+  return <div className={`request-container request-browse ${mine ? 'request-history' : ''}`}>
+    <header className="request-browse-heading"><p className="request-caption">{mine ? 'REQUEST / REQUEST SAYA' : 'REQUEST / SALING MEMBANTU'}</p><h1 className="request-heading">{mine ? 'Request saya' : 'Yang kamu punya, mereka butuhkan.'}</h1><p className="request-intro">{mine ? 'Kelola kebutuhan dan lihat histori semua status, termasuk request yang diarsipkan.' : 'Lihat kebutuhan pangan dan bahan organik di sekitarmu.'}</p></header>
     {notice && <Alert tone="success" title={notice} />}
-    <form key={`${q}:${area}`} role="search" onSubmit={search} className="grid items-end gap-3 nav:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
-      <FormField label="Cari kebutuhan" error={searchError}><Input name="q" defaultValue={q} maxLength={100} placeholder="Kategori atau peruntukan resource" /></FormField>
-      <FormField label="Area" hint="Nama area harus sama; tanpa pencarian radius."><Input name="area" defaultValue={area} maxLength={100} placeholder="Semua area" /></FormField><Button type="submit">Cari</Button>
+    <form key={`${q}:${area}`} role="search" onSubmit={search} className="request-search">
+      <div className="request-search-query"><FormField label="Cari kebutuhan" error={searchError}><Input name="q" defaultValue={q} maxLength={100} placeholder="Nama atau jenis kebutuhan" /></FormField></div>
+      <div className="request-search-area"><FormField label="Area"><Input name="area" defaultValue={area} maxLength={100} placeholder="Kota atau area" /></FormField></div><Button className="request-search-submit" type="submit">Cari request</Button><Link className="fr-button request-create" to="/requests/new">+ Buat request</Link>
     </form>
-    <Button variant="secondary" className="nav:hidden" onClick={() => { setFilters(active); setSheet(true) }}>Filter</Button>
+    <Button variant="secondary" className="-mt-3 nav:hidden" onClick={() => { setFilters(active); setSheet(true) }}>Filter</Button>
     <FilterSheet title="Filter kebutuhan" open={sheet} onClose={() => setSheet(false)}>{sheet && filterControls}</FilterSheet>
+    <div className="request-filter-summary nav:hidden"><span>{active.resource_type ? requestLabel(active.resource_type) : 'Semua jenis'}</span><span>{active.donate_only === 'true' ? 'Donasi saja' : active.donate_only === 'false' ? 'Donasi atau berbayar' : 'Semua preferensi'}</span></div>
     <div className="grid items-start gap-6 nav:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="hidden flex-col gap-3 rounded-md bg-surface p-4 nav:flex"><h2 className="m-0 text-lg">Saring kebutuhan</h2>{!sheet && filterControls}</aside>
       <section aria-label="Hasil pencarian kebutuhan" aria-busy={pending} className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-4"><div><h2 className="m-0 text-lg">{mine ? 'Histori kebutuhan' : 'Kebutuhan terbuka'}</h2><p role="status" className="m-0 text-sm text-muted">{data ? `${data.count} request ditemukan` : 'Temukan kebutuhan yang sesuai.'}</p></div><FormField label="Urutkan"><Select name="ordering" value={ordering} onChange={event => update({ ordering: event.target.value })} options={orders} /></FormField><Button variant="secondary" onClick={retry}>Perbarui hasil</Button></div>
+        <div className="request-results-heading"><h2>{mine ? 'Histori kebutuhan' : 'Kebutuhan yang masih terbuka'}</h2><p role="status">{data ? `${data.count} request ditemukan` : 'Temukan kebutuhan yang sesuai.'}</p></div>
         {invalidQuery && <PageState error title="Pencarian tidak valid" action={<Button onClick={reset}>Reset pencarian</Button>}>Periksa kata pencarian, area, urutan, dan nomor halaman.</PageState>}
         {pending && <p role="status">Memuat kebutuhan…</p>}
         {error !== undefined && <PageState error title="Kebutuhan belum dapat dimuat" action={<div className="flex flex-wrap gap-3"><Button onClick={retry}>Coba lagi</Button><Button variant="secondary" onClick={reset}>Reset pencarian</Button></div>}>{requestError(error)}</PageState>}
-        {data && (data.results.length ? <><div className="grid items-start gap-4 xl:grid-cols-2">{data.results.map(request => {
+        {data && (data.results.length ? <><div className="grid items-start gap-4 nav:grid-cols-2">{data.results.map(request => {
           const category = reference.data?.categories.find(item => item.code === request.category)?.label || requestLabel(request.category)
-          return <div key={request.id} className="flex min-w-0 flex-col gap-3"><RequestCard title={`Kebutuhan ${category}`} category={category} resourceType={request.resource_type === 'COMPOSTABLE_FOOD_WASTE' ? 'organic' : 'packaged'} remaining={quantityText(request.quantity_remaining)} total={quantityText(request.quantity_needed)} allocated={quantityText(request.quantity_allocated)} fulfilled={quantityText(request.quantity_fulfilled)} unit={request.unit} budgetHint={budgetText(request)} deadline={deadlineText(request.valid_until)} intendedUse={requestLabel(request.intended_use)} area={request.location.area} status={requestLabel(request.status)} to={`/requests/${request.id}`} />{mine && <>{request.archived_at && <Badge>Diarsipkan</Badge>}<RequestActions request={request} inHistory onChanged={changed} /></>}</div>
+          return <div key={request.id} className={`flex min-w-0 flex-col gap-3 ${mine ? 'request-history-item' : ''}`}><RequestCard title={`Kebutuhan ${category}`} category={category} showCounters={mine} resourceType={request.resource_type === 'COMPOSTABLE_FOOD_WASTE' ? 'organic' : 'packaged'} remaining={quantityText(request.quantity_remaining)} total={quantityText(request.quantity_needed)} allocated={quantityText(request.quantity_allocated)} fulfilled={quantityText(request.quantity_fulfilled)} unit={request.unit} budgetHint={budgetSummary(request)} deadline={deadlineText(request.valid_until)} intendedUse={requestLabel(request.intended_use)} area={request.location.area} status={mine ? requestLabel(request.status) : request.status} to={`/requests/${request.id}`} />{mine && <>{request.archived_at && <Badge>Diarsipkan</Badge>}<RequestActions request={request} inHistory onChanged={changed} /></>}</div>
         })}</div><nav aria-label="Halaman kebutuhan" className="mt-6 flex flex-wrap items-center justify-center gap-4"><Button variant="secondary" disabled={!data.previous || page <= 1} onClick={() => setParams({ ...Object.fromEntries(params), page: String(page - 1) })}>Sebelumnya</Button><span aria-current="page">Halaman {page}</span><Button variant="secondary" disabled={!data.next} onClick={() => setParams({ ...Object.fromEntries(params), page: String(page + 1) })}>Berikutnya</Button></nav></> : <PageState title="Belum ada kebutuhan yang sesuai" action={<Button variant="secondary" onClick={reset}>Reset pencarian</Button>}>Coba kata pencarian atau filter lain.</PageState>)}
       </section>
     </div>
+    <div className="request-browse-bottom">{auth.status === 'anonymous' && <p>Masuk untuk membuat request atau menawarkan resource.</p>}<Button variant="ghost" onClick={retry}>Perbarui hasil</Button></div>
   </div>
 }

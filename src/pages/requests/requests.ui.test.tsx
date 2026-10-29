@@ -122,6 +122,8 @@ async function click(text: string) {
   expect(button, text).toBeDefined(); await act(async () => button.click()); await settle()
 }
 async function select(name: string, value: string) {
+  const radio = container.querySelector<HTMLInputElement>(`input[type="radio"][name="${name}"][value="${value}"]`)
+  if (radio) { await act(async () => radio.click()); return }
   const element = container.querySelector<HTMLSelectElement>(`[name="${name}"]`)!
   await act(async () => { element.value = value; element.dispatchEvent(new Event('change', { bubbles: true })) })
 }
@@ -230,7 +232,7 @@ it('renders detail counters, budget/deadline and only explicitly public fields',
   await mount('/requests/7')
   for (const text of ['Total dibutuhkan', 'Dialokasikan', 'Sudah terpenuhi', '12.125 kg', '20 kg', '5 kg', '2.875 kg', 'Hanya menerima donasi', 'WIB', 'Rani']) expect(container.textContent).toContain(text)
   expect(container.textContent).not.toMatch(/private@example|628120000000|traceback/)
-  expect(container.textContent).toContain('tanpa membuat listing publik')
+  expect(container.textContent).toContain('Provider menentukan lokasi resource saat menawarkan.')
 })
 it('takes guests to login and retains the offer destination', async () => {
   await mount('/requests/7'); await act(async () => container.querySelector<HTMLAnchorElement>('a[href="/login"]')!.click())
@@ -267,7 +269,7 @@ it('rejects malformed IDs locally', async () => {
 it('refreshes details on focus and reads changed server state', async () => {
   await mount('/requests/7', 2); request.status = 'CLOSED'
   await act(async () => window.dispatchEvent(new Event('focus'))); await settle()
-  expect(container.textContent).toContain('Ditutup')
+  expect(container.textContent).toContain('CLOSED')
   expect(container.querySelector('a[href$="/offer"]')).toBeNull()
 })
 it('clears private details immediately on logout even while the anonymous read is pending', async () => {
@@ -335,6 +337,14 @@ it('creates a donation request with session, CSRF and only writable contract fie
   expect(router.state.location.pathname).toBe('/requests/8')
   expect(container.textContent).toContain('Request berhasil diterbitkan')
 })
+it('validates bounded-price choices before sending writes', async () => {
+  await mount('/requests/new', 1); await completeRequest()
+  await click('Batas harga'); await submit()
+  expect(writes()).toHaveLength(0)
+  expect(container.textContent).toContain('Isi batas harga per satuan atau pilih Tanpa batas.')
+  await input('max_unit_price', '0.00'); await submit()
+  expect(writes()[0].body).toMatchObject({ max_unit_price: '0.00' })
+})
 it.each([['', null], ['0.00', '0.00'], ['15000.50', '15000.50']])('creates a priced-cap preference %s without rounding or coercing null', async (price, expected) => {
   await mount('/requests/new', 1); await completeRequest(); await input('max_unit_price', price!); await submit()
   expect(writes()[0].body).toMatchObject({ donate_only: false, max_unit_price: expected })
@@ -382,7 +392,7 @@ it.each([['quantity_needed', '0'], ['quantity_needed', '2.5'], ['max_unit_price'
   expect(container.querySelector(`[name="${field}"]`)!.getAttribute('aria-invalid')).toBe('true')
 })
 it('requires selecting a valid location before create', async () => {
-  await mount('/requests/new', 1); await completeRequest(); await click('Hapus pilihan lokasi'); await submit()
+  await mount('/requests/new', 1); await completeRequest(); await click('Ubah lokasi'); await submit()
   expect(writes()).toHaveLength(0)
   expect(container.textContent).toContain('Cari dan pilih lokasi kebutuhan yang valid')
 })

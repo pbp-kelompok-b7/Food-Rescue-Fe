@@ -15,25 +15,26 @@ export default function RequestCard({
   area,
   status = 'OPEN',
   category,
+  showCounters = false,
   to,
-}: { title: string; resourceType?: 'packaged' | 'organic'; remaining: string | number; total: string | number; allocated: string | number; fulfilled: string | number; unit: string; budgetHint?: string; deadline?: string; intendedUse?: string; area?: string; status?: string; category?: string; to?: string }) {
+}: { title: string; resourceType?: 'packaged' | 'organic'; remaining: string | number; total: string | number; allocated: string | number; fulfilled: string | number; unit: string; budgetHint?: string; deadline?: string; intendedUse?: string; area?: string; status?: string; category?: string; showCounters?: boolean; to?: string }) {
   const organic = resourceType === 'organic'
   return (
-    <article className="min-w-0 rounded-md border border-border bg-surface wrap-anywhere [&_h2]:m-0 [&_h2]:text-xl [&_h2]:leading-7 [&_h2]:font-semibold flex flex-col items-start gap-4 p-5 shadow-card [&_p]:m-0">
+    <article className="request-card min-w-0 rounded-md border border-border bg-surface wrap-anywhere [&_h2]:m-0 [&_h2]:text-xl [&_h2]:leading-7 [&_h2]:font-semibold flex flex-col items-start gap-4 p-5 shadow-card [&_p]:m-0">
       <p className="text-sm font-semibold text-primary-hover">DIBUTUHKAN</p>
       <span
-        className={`inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs leading-4 font-semibold ${organic ? 'bg-organic-container text-on-organic' : 'bg-warning-container text-on-warning-container'}`}
+        className="inline-flex min-w-32 items-center gap-1 self-start rounded-md bg-warning-container px-2 py-1 text-xs leading-4 text-on-warning-container"
       >
-        <Icon name={organic ? 'organic' : 'packaged'} />
-        {organic ? 'Bahan organik' : 'Pangan kemasan'}
+        {!organic && <Icon name="packaged" />}
+        {organic ? 'Bahan organik' : 'Makanan kemasan'}
       </span>
       <h2>{to ? <Link to={to}>{title}</Link> : title}</h2>
-      {category && <p className="text-sm text-muted">Kategori: {category}</p>}
+      {category && <p className="sr-only">Kategori: {category}</p>}
       <div className="font-semibold leading-[1.556]">
         <p>
           Sisa kebutuhan {remaining} {unit}
         </p>
-        <p>
+        <p className={showCounters ? 'mt-1 text-sm font-normal text-muted' : 'sr-only'}>
           Total {total} · Alokasi {allocated} · Terpenuhi {fulfilled}
         </p>
       </div>
