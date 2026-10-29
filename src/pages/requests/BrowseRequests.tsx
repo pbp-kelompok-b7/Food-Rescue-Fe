@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
 import PageState from '../../components/PageState.tsx'
@@ -43,6 +43,7 @@ export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
   const [attempt, setAttempt] = useState(0)
   const [notice, setNotice] = useState<string>(location.state?.requestNotice || '')
   const [result, setResult] = useState<{ key: string; data?: RequestPage; error?: unknown }>({ key: '' })
+  const recoverPageAfterWrite = useRef(false)
   // Public browsing cannot be changed into private history by incoming URL fields.
   const query = new URLSearchParams({ page: String(page), page_size: '20', ordering })
   if (mine) query.set('scope', 'mine')
@@ -59,12 +60,16 @@ export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
   useEffect(() => {
     const controller = new AbortController()
     if (!invalidQuery && readable) requestsApi.list(Object.fromEntries(new URLSearchParams(apiKey)), { signal: controller.signal }).then(data => {
-      if (!controller.signal.aborted) setResult({ key, data })
+      if (!controller.signal.aborted) { recoverPageAfterWrite.current = false; setResult({ key, data }) }
     }).catch(error => {
-      if (!controller.signal.aborted) setResult({ key, error })
+      if (controller.signal.aborted) return
+      const recover = mine && recoverPageAfterWrite.current && page > 1 && error instanceof ApiError && error.status === 404 && error.errors.some(item => item.code === 'page_not_found')
+      recoverPageAfterWrite.current = false
+      if (recover) setParams(previous => { const next = new URLSearchParams(previous); next.delete('page'); return next }, { replace: true })
+      else setResult({ key, error })
     })
     return () => controller.abort()
-  }, [key, apiKey, attempt, invalidQuery, readable])
+  }, [key, apiKey, attempt, invalidQuery, readable, mine, page, setParams])
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState !== 'hidden' && !document.querySelector('dialog[open]')) { setResult({ key }); setAttempt(value => value + 1) }
@@ -91,7 +96,7 @@ export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
   }
   function reset() { setFilters(blankFilters); setSearchError(undefined); update({}, true); setSheet(false) }
   function retry() { setResult({ key }); setAttempt(value => value + 1) }
-  function changed(message: string) { setNotice(message); if (message) setResult({ key }); setAttempt(value => value + 1) }
+  function changed(message: string) { setNotice(message); if (message) { recoverPageAfterWrite.current = true; setResult({ key }) } setAttempt(value => value + 1) }
   const data = readable && !invalidQuery && result.key === key ? result.data : undefined
   const error = readable && !invalidQuery && result.key === key ? result.error : undefined
   const pending = !data && error === undefined && !invalidQuery

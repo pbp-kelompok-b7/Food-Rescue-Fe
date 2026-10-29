@@ -586,3 +586,12 @@ it('clears private owner history immediately after logout', async () => {
   expect(router.state.location.pathname).toBe('/login')
   expect(container.querySelector('a[href="/requests/7"]')).toBeNull()
 })
+it('returns to page one when a successful delete removes the last history page', async () => {
+  await mount('/my/requests?page=2', 1)
+  listHandler = url => url.searchParams.get('page') === '2' ? Promise.resolve(failure(404, 'page_not_found')) : Promise.resolve(ok({ count: 20, next: null, previous: null, results: [{ ...fixture, id: 8 }] }))
+  await click('Hapus / arsipkan'); await click('Ya, hapus / arsipkan'); await settle()
+  expect(router.state.location.search).not.toContain('page=2')
+  expect(container.textContent).toContain('Halaman 1')
+  expect(container.querySelector('a[href="/requests/8"]')).not.toBeNull()
+  expect(container.textContent).not.toContain('Halaman hasil tidak ditemukan')
+})
