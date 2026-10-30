@@ -128,6 +128,10 @@ Kerjakan perubahan di branch fitur, buat pull request ke `main`, dan minta minim
 
 Ruleset `main` seharusnya mewajibkan PR, satu approval, dan status check `Lint and build`; blokir penghapusan dan force push. Jangan aktifkan `Restrict updates` tanpa bypass yang sesuai karena dapat menghalangi merge PR. Required status check dapat dipilih setelah workflow tersedia dan pernah berjalan di GitHub.
 
+## AI Disclosure
+
+Alat AI digunakan untuk membantu implementasi frontend, debugging, dan dokumentasi. Anggota tim telah meninjau dan menyesuaikan saran yang dihasilkan serta tetap bertanggung jawab atas kode yang dikumpulkan dan perilakunya.
+
 
 ## Integrasi API Revisi 2
 
