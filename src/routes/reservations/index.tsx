@@ -1,7 +1,7 @@
-import ModulePage from '../../pages/ModulePage.tsx'
+import ReservationInbox from '../../pages/reservations/ReservationInbox.tsx'
 
-export const meta = () => [{ title: "Reservation | Food Rescue" }]
+export const meta = () => [{ title: "Reservasi saya | Food Rescue" }]
 
 export default function Page() {
-  return <ModulePage title="Reservation" />
+  return <ReservationInbox />
 }

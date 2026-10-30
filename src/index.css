@@ -101,6 +101,70 @@
   .supply-caption { @apply m-0 text-[11px] font-semibold text-primary; }
   .supply-form .fr-control { @apply border-transparent bg-supply-input aria-invalid:border-danger; }
 
+  /* Request Board: Figma 56:1054/1095, 56:1116/1155, 56:1189/1242. */
+  .request-container { @apply mx-auto w-full max-w-320 px-5 py-6 nav:px-12 nav:py-12; }
+  .request-caption { @apply m-0 text-xs font-normal text-primary; }
+  .request-heading { @apply m-0 font-brand text-2xl leading-[1.3] font-semibold text-ink nav:text-[32px]; }
+  .request-intro { @apply m-0 text-sm text-muted nav:text-base; }
+  .request-browse { @apply flex flex-col gap-6; }
+  .request-browse-heading { @apply bg-surface pb-6 nav:bg-transparent nav:pb-0; }
+  .request-browse-heading .request-heading { @apply mt-14 mb-2 nav:mt-3 nav:text-primary; }
+  .request-search { @apply grid items-end gap-3 nav:grid-cols-[minmax(0,1.8fr)_minmax(0,1.08fr)_120px_180px]; }
+  .request-search-query { @apply order-2 mt-3 nav:order-1 nav:mt-0; }
+  .request-search-area { @apply hidden nav:order-2 nav:block; }
+  .request-search-submit { @apply order-3 mt-3 nav:mt-0; }
+  .request-search .request-create { @apply order-1 w-full bg-brand text-on-brand shadow-none hover:not-disabled:bg-brand-hover active:not-disabled:bg-brand-active active:not-disabled:opacity-100 nav:order-4; }
+  .request-filter-summary { @apply -mt-3 flex flex-col gap-3 text-xs text-primary; }
+  .request-results-heading { @apply mb-4 flex flex-col gap-4; }
+  .request-results-heading h2 { @apply m-0 text-lg font-semibold; }
+  .request-results-heading p { @apply m-0 text-xs text-muted; }
+  .request-advanced { @apply text-xs text-muted; }
+  .request-advanced summary { @apply min-h-8 cursor-pointer pt-2; }
+  .request-card h2 a { @apply text-ink no-underline hover:underline; }
+  .request-browse-bottom { @apply flex flex-wrap items-center justify-between gap-2 text-xs text-muted; }
+  .request-browse-bottom p { @apply m-0; }
+  .request-browse-bottom button { @apply text-xs; }
+  .request-history-item { @apply rounded-md border border-border bg-surface pb-4; }
+  .request-history-item .request-card { @apply border-0 shadow-none; }
+  .request-history-item > :not(.request-card) { @apply mx-4; }
+  .request-detail { @apply mx-auto flex w-full max-w-320 flex-col gap-5 px-6 pt-6 pb-12 nav:px-16 nav:pt-8; }
+  .request-detail-columns { @apply grid items-start gap-6 nav:grid-cols-[minmax(0,1.48fr)_minmax(0,1fr)] nav:gap-12; }
+  .request-illustration { @apply flex min-h-52.5 flex-col rounded-xl bg-supply-container p-6 nav:min-h-98; }
+  .request-illustration h2 { @apply m-0 font-brand text-2xl font-semibold text-primary nav:text-[32px]; }
+  .request-illustration-body { @apply flex flex-1 flex-col items-center justify-center gap-3 text-center nav:py-8; }
+  .request-illustration-body > span { @apply size-12 nav:size-18; }
+  .request-illustration-body img { @apply size-6; }
+  .request-illustration-body h3 { @apply text-base nav:text-lg; }
+  .request-illustration-body p { @apply m-0 text-xs text-muted nav:text-sm; }
+  .request-detail-copy { @apply mt-7 flex flex-col gap-2; }
+  .request-detail-copy h2 { @apply m-0 text-[22px] font-semibold; }
+  .request-detail-copy h3 { @apply m-0 text-lg font-semibold; }
+  .request-detail-copy p { @apply m-0 text-sm text-muted; }
+  .request-detail-facts { @apply mt-10 flex flex-col gap-4 nav:mt-18; }
+  .request-detail-facts h2 { @apply m-0 text-lg font-semibold; }
+  .request-offer-panel { @apply flex min-w-0 flex-col gap-5 rounded-xl bg-surface p-6 nav:p-7; }
+  .request-offer-panel h2 { @apply m-0 font-brand text-xl font-semibold nav:text-2xl; }
+  .request-offer-panel p { @apply m-0 text-sm text-muted; }
+  .request-offer-panel .request-remaining { @apply flex flex-col gap-1 rounded-md bg-supply-container p-4; }
+  .request-remaining h3 { @apply m-0 text-base font-semibold; }
+  .request-remaining p { @apply text-xs; }
+  .request-form { @apply mx-auto flex w-full max-w-202 flex-col gap-8 px-6 pt-8 pb-16 nav:px-6 nav:pt-12 nav:pb-48; }
+  .request-form-heading .request-caption { @apply mb-6; }
+  .request-form-card { @apply rounded-xl bg-surface px-5 py-6 nav:p-7; }
+  .request-form [aria-label='Pemilihan lokasi'] { @apply border-0 p-0; }
+  .request-form-section { @apply flex min-w-0 flex-col gap-5; }
+  .request-form-section h2 { @apply m-0 text-xl font-semibold; }
+  .request-segments { @apply grid grid-cols-1 gap-2 nav:grid-cols-2; }
+  .request-segment { @apply relative block min-w-0 cursor-pointer; }
+  .request-segment input { @apply absolute inset-0 m-0 size-full cursor-pointer opacity-0; clip-path: none; clip: auto; }
+  .request-segment .fr-button { @apply w-full border border-outline bg-surface text-ink shadow-none; }
+  .request-segment input:checked + .fr-button { @apply border-primary bg-primary text-white; }
+  .request-segment input:focus-visible + .fr-button { @apply outline-3 outline-on-primary-container outline-offset-4; }
+  .request-segment input:disabled + .fr-button { @apply cursor-not-allowed opacity-60; }
+  .request-price-segments { @apply grid grid-cols-1 gap-2 nav:grid-cols-3; }
+  .request-form-buttons { @apply grid grid-cols-1 gap-3 nav:grid-cols-2; }
+  .request-form-buttons a { @apply border border-outline bg-surface text-ink shadow-none hover:bg-organic; }
+
   .fr-button {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md
       border-0 bg-primary p-3 text-center text-sm

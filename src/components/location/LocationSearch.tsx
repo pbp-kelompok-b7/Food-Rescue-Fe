@@ -14,8 +14,8 @@ function searchError(error: unknown) {
   return 'Lokasi belum dapat dimuat. Periksa koneksi dan coba lagi.'
 }
 
-export default function LocationSearch({ value, onChange, limit = 5, disabled = false, error: fieldError }: {
-  value: LocationResult | null; onChange: (value: LocationResult | null) => void; limit?: number; disabled?: boolean; error?: string
+export default function LocationSearch({ value, onChange, limit = 5, disabled = false, error: fieldError, compact = false }: {
+  value: LocationResult | null; onChange: (value: LocationResult | null) => void; limit?: number; disabled?: boolean; error?: string; compact?: boolean
 }) {
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
@@ -93,9 +93,9 @@ export default function LocationSearch({ value, onChange, limit = 5, disabled = 
   const attribution = [...new Set([...results.map(item => item.attribution), ...(value ? [value.attribution] : [])])].join(' · ')
   return <fieldset disabled={disabled} className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0">
     <legend className="sr-only">Lokasi resource</legend>
-    <LocationPicker query={query} onQueryChange={next => edit(next, area)} area={area} onAreaChange={next => edit(query, next)} onSearch={() => void search()} results={results} selected={value} onSelect={onChange} loading={loading} searched={searched} error={error} queryError={queryError} areaError={areaError} attribution={attribution} searchDisabled={disabled || remaining > 0} onRetry={() => void search()} retryLabel={remaining > 0 ? `Coba lagi dalam ${remaining} detik` : 'Coba lagi'} />
+    <div hidden={Boolean(compact && value)}><LocationPicker query={query} onQueryChange={next => edit(next, area)} area={area} onAreaChange={compact ? undefined : next => edit(query, next)} onSearch={() => void search()} results={results} selected={value} onSelect={onChange} loading={loading} searched={searched} error={error} queryError={queryError} areaError={areaError} attribution={attribution} searchDisabled={disabled || remaining > 0} onRetry={() => void search()} retryLabel={remaining > 0 ? `Coba lagi dalam ${remaining} detik` : 'Coba lagi'} /></div>
     {remaining > 0 && !error && <p role="status" className="m-0 text-sm text-muted">Pencarian dapat dicoba lagi dalam {remaining} detik.</p>}
-    {value && <div className="flex min-w-0 flex-col gap-2 text-sm"><p role="status" className="m-0 wrap-anywhere">Lokasi terpilih: <strong>{value.label}</strong> · {value.area}</p><Button className="self-start" variant="ghost" onClick={() => onChange(null)}>Hapus pilihan lokasi</Button></div>}
+    {value && <div className="flex min-w-0 flex-col gap-2 text-sm"><p role="status" className={`m-0 wrap-anywhere ${compact ? 'bg-supply-container p-4 text-primary' : ''}`}>{compact ? '✓ ' : 'Lokasi terpilih: '}<strong>{compact ? value.area : value.label}</strong>{compact ? <span className="sr-only"> · Lokasi terpilih: {value.label}</span> : ` · ${value.area}`}</p><Button className="self-start" variant="ghost" onClick={() => onChange(null)}>{compact ? 'Ubah lokasi' : 'Hapus pilihan lokasi'}</Button>{compact && value.attribution && <p className="m-0 text-xs text-muted wrap-anywhere">{value.attribution}</p>}</div>}
     {fieldError && <p role="alert" className="m-0 text-sm text-danger">{fieldError}</p>}
   </fieldset>
 }

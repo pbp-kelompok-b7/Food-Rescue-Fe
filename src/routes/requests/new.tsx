@@ -1,7 +1,7 @@
-import ModulePage from '../../pages/ModulePage.tsx'
+import RequestForm from '../../pages/requests/RequestForm.tsx'
 
 export const meta = () => [{ title: "Buat request | Food Rescue" }]
 
 export default function Page() {
-  return <ModulePage title="Buat request" />
+  return <RequestForm />
 }
