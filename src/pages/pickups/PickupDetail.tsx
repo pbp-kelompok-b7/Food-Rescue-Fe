@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
 import Alert from '../../components/ui/Alert.tsx'
 import Badge from '../../components/ui/Badge.tsx'
 import Button from '../../components/ui/Button.tsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.tsx'
+import Dialog from '../../components/ui/Dialog.tsx'
 import FormField from '../../components/ui/FormField.tsx'
 import Textarea from '../../components/ui/Textarea.tsx'
 import AgreementSummary from '../../components/transactions/AgreementSummary.tsx'
@@ -40,8 +41,11 @@ export default function PickupDetail() {
   const [noShowError, setNoShowError] = useState<string | null>(null)
   const [markingNoShow, setMarkingNoShow] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelReasonError, setCancelReasonError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const cancelSubmittingRef = useRef(false)
   const completingRef = useRef(false)
   const noShowSubmittingRef = useRef(false)
 
@@ -205,25 +209,42 @@ export default function PickupDetail() {
     }
   }
 
-  async function cancelReservation() {
-    if (!reservation || !pickup || cancelling) return
+  async function cancelReservation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!reservation || !pickup || cancelSubmittingRef.current) return
+    const reason = cancelReason.trim()
+    if (!reason) {
+      setCancelReasonError('Isi alasan terlebih dahulu.')
+      return
+    }
+    if (reason.length > 1000) {
+      setCancelReasonError('Alasan terlalu panjang.')
+      return
+    }
+    cancelSubmittingRef.current = true
     setCancelling(true)
     setCancelError(null)
+    setCancelReasonError(null)
     try {
       await bootstrapCsrf()
-      await reservationsApi.cancel(reservation.id, {
-        reason: 'Dibatalkan oleh peserta melalui halaman detail pickup.',
-      })
+      await reservationsApi.cancel(reservation.id, { reason })
       await refreshAfterAction({ ...pickup, status: 'CANCELLED', cancelled_at: new Date().toISOString() })
       setCancelOpen(false)
+      setCancelReason('')
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) clearSession()
-      setCancelError(
-        failure instanceof ApiError && failure.status === 409
-          ? 'Reservasi berubah dan tidak dapat dibatalkan. Muat ulang untuk melihat status terbaru.'
-          : 'Reservasi belum dapat dibatalkan. Coba lagi.',
-      )
+      if (failure instanceof ApiError && failure.status === 400 && failure.errors.some(item => item.field === 'reason')) {
+        setCancelReasonError('Alasan wajib diisi dan maksimal 1.000 karakter.')
+      } else if (failure instanceof ApiError && failure.status === 409) {
+        setCancelError('Reservasi berubah dan tidak dapat dibatalkan. Muat ulang untuk melihat status terbaru.')
+        setAttempt(value => value + 1)
+      } else {
+        setCancelError(failure instanceof ApiError && failure.status === 401
+          ? 'Sesi berakhir. Masuk kembali untuk melanjutkan.'
+          : 'Reservasi belum dapat dibatalkan. Periksa koneksi lalu coba lagi.')
+      }
     } finally {
+      cancelSubmittingRef.current = false
       setCancelling(false)
     }
   }
@@ -491,6 +512,8 @@ export default function PickupDetail() {
                 className="mt-1 w-full font-medium"
                 onClick={() => {
                   setCancelError(null)
+                  setCancelReasonError(null)
+                  setCancelReason('')
                   setCancelOpen(true)
                 }}
               >
@@ -558,24 +581,19 @@ export default function PickupDetail() {
           </FormField>
         </div>
       </ConfirmDialog>
-      <ConfirmDialog
-        open={cancelOpen}
-        title="Batalkan reservasi?"
-        confirmLabel="Ya, batalkan"
-        className="!w-[min(350px,calc(100%_-_32px))]"
-        destructive
-        loading={cancelling}
-        stacked
-        onCancel={() => setCancelOpen(false)}
-        onConfirm={cancelReservation}
-      >
-        {cancelError && (
-          <Alert tone="danger" title="Pembatalan gagal">
-            {cancelError}
-          </Alert>
-        )}
-        Kesepakatan dan jadwal pickup yang belum selesai akan dibatalkan. Alokasi resource dilepas.
-      </ConfirmDialog>
+      <Dialog open={cancelOpen} title="Batalkan reservasi" onClose={cancelling ? undefined : () => setCancelOpen(false)}>
+        <p className="m-0 mb-3 text-sm text-muted">Reservasi akan dibatalkan. Alokasi yang diterima dilepas dan pickup terjadwal ikut dibatalkan. Sumber yang sudah ditutup/kedaluwarsa tidak dibuka kembali.</p>
+        {cancelError && <div className="mb-3"><Alert tone="danger" title="Tindakan belum selesai">{cancelError}</Alert></div>}
+        <form onSubmit={cancelReservation}>
+          <label className="mb-1 block text-sm font-semibold" htmlFor="pickup-cancel-reason">Alasan</label>
+          <Textarea id="pickup-cancel-reason" name="reason" value={cancelReason} onChange={event => { setCancelReason(event.target.value); setCancelReasonError(null) }} maxLength={1000} aria-invalid={Boolean(cancelReasonError)} disabled={cancelling} />
+          {cancelReasonError && <p className="mt-1 mb-0 text-sm text-danger">{cancelReasonError}</p>}
+          <div className="mt-4 flex gap-3 [&>button]:h-11 [&>button]:flex-1 [&>button]:py-0">
+            <Button type="button" variant="secondary" disabled={cancelling} onClick={() => setCancelOpen(false)}>Batal</Button>
+            <Button type="submit" variant="destructive" loading={cancelling}>Batalkan reservasi</Button>
+          </div>
+        </form>
+      </Dialog>
     </article>
   )
 }
