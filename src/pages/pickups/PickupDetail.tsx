@@ -399,9 +399,9 @@ export default function PickupDetail() {
           )}
           {pickup.status === 'COMPLETED' && (
             <div className="rounded-md bg-organic p-4">
-              <h3 className="m-0 text-base font-bold">Penerimaan dicatat</h3>
+              <h3 className="m-0 text-base font-bold">Pickup selesai</h3>
               <p className="mt-2 mb-0 text-sm">
-                Seluruh {pickupQuantity || 'resource'} telah dikonfirmasi diterima. Ini bukan verifikasi pembayaran.
+                Receiver mengonfirmasi seluruh resource telah diterima.
               </p>
             </div>
           )}

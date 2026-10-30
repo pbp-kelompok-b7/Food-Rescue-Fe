@@ -330,7 +330,7 @@ it.each(['LISTING_CLAIM', 'REQUEST_OFFER'])('lets only the receiver confirm all 
     csrf: 'pickup-test-csrf',
   })
   expect(container.textContent).toContain('Pickup selesai')
-  expect(container.textContent).toContain('Ini bukan verifikasi pembayaran.')
+  expect(container.textContent).toContain('Receiver mengonfirmasi seluruh resource telah diterima.')
   expect(container.querySelector('button')?.textContent).not.toContain('Konfirmasi penerimaan')
   expect(detailRefreshCalls.map(url => url.pathname)).toContain('/api/v1/pickups/12/')
   expect(detailRefreshCalls.map(url => url.pathname)).toContain('/api/v1/reservations/31/')

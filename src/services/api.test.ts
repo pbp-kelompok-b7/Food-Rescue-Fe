@@ -159,14 +159,18 @@ test('admin actions send the correct HTTP method and resource identifier', async
   })
   await adminApi.listUsers({ search: 'A B' })
   await adminApi.updateUser(3, { is_active: false })
-  await adminApi.schedulePickup(12, { pickup_date: '2026-10-23' })
-  await adminApi.completePickup(45, { expected_version: 2 })
+  await adminApi.schedulePickup(12, { scheduled_at: '2026-10-23T10:00:00+07:00', instructions: null, reason: 'Penjadwalan oleh admin.' })
+  await adminApi.updatePickup(45, { instructions: 'Instruksi baru', reason: 'Koreksi admin.' })
+  await adminApi.completePickup(45, { reason: 'Hand-off diverifikasi admin.' })
+  await adminApi.markPickupNoShow(46, { reason: 'Receiver tidak hadir.' })
   await adminApi.deleteListing('a/b')
   assert.deepEqual(calls, [
     { url: '/api/v1/admin/users/?search=A+B', method: 'GET', body: undefined },
     { url: '/api/v1/admin/users/3/', method: 'PATCH', body: JSON.stringify({ is_active: false }) },
-    { url: '/api/v1/admin/reservations/12/pickup/', method: 'POST', body: JSON.stringify({ pickup_date: '2026-10-23' }) },
-    { url: '/api/v1/admin/pickups/45/complete/', method: 'POST', body: JSON.stringify({ expected_version: 2 }) },
+    { url: '/api/v1/admin/reservations/12/pickup/', method: 'POST', body: JSON.stringify({ scheduled_at: '2026-10-23T10:00:00+07:00', instructions: null, reason: 'Penjadwalan oleh admin.' }) },
+    { url: '/api/v1/admin/pickups/45/', method: 'PATCH', body: JSON.stringify({ instructions: 'Instruksi baru', reason: 'Koreksi admin.' }) },
+    { url: '/api/v1/admin/pickups/45/complete/', method: 'POST', body: JSON.stringify({ reason: 'Hand-off diverifikasi admin.' }) },
+    { url: '/api/v1/admin/pickups/46/no-show/', method: 'POST', body: JSON.stringify({ reason: 'Receiver tidak hadir.' }) },
     { url: '/api/v1/admin/listings/a%2Fb/', method: 'DELETE', body: undefined },
   ])
 })
