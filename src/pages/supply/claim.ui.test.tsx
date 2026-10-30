@@ -48,8 +48,8 @@ let requests: { url: URL; method: string; body: Record<string, unknown> | null; 
 const ok = (data: unknown) => Response.json({ success: true, data })
 const failed = (status: number, code = 'server_error', field: string | null = null) => Response.json({ success: false, message: 'Internal secret should not be rendered', errors: [{ field, code, message: field ? 'Jumlah ditolak server.' : 'Secret traceback' }] }, { status })
 async function settle() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) }) }
-async function mount(path = '/supply/7/claim', userId: number | null = 2, overrides: Partial<Listing> = {}, detailResponseStatus = 200) {
-  listing = { ...structuredClone(fixture), ...overrides }; detailStatus = detailResponseStatus; claimStatus = 201; claimCode = 'invalid'; referenceStatus = 200; csrfStatus = 200; requests = []
+async function mount(path = '/supply/7/claim', userId: number | null = 2, overrides: Partial<Listing> = {}, detailResponseStatus = 200, referenceResponseStatus = 200) {
+  listing = { ...structuredClone(fixture), ...overrides }; detailStatus = detailResponseStatus; claimStatus = 201; claimCode = 'invalid'; referenceStatus = referenceResponseStatus; csrfStatus = 200; requests = []
   vi.stubGlobal('fetch', vi.fn(async (path: string, options: RequestInit & { headers: Headers }) => {
     const url = new URL(path, 'http://localhost')
     const method = options.method || 'GET'
@@ -188,4 +188,20 @@ it.each([404, 501, 500])('shows a safe detail error for %s', async status => {
   await mount('/supply/7/claim', 2, {}, status)
   expect(container.textContent).toContain('Supply belum dapat dibuka')
   expect(container.textContent).not.toContain('Internal secret')
+})
+
+it('recovers a failed reference lookup without reloading the claim page', async () => {
+  await mount('/supply/7/claim', 2, {}, 200, 503)
+  expect(container.textContent).toContain('Pilihan resource belum tersedia')
+  expect(container.querySelector<HTMLInputElement>('[name="quantity"]')?.disabled).toBe(true)
+  await submit()
+  expect(claims()).toHaveLength(0)
+  referenceStatus = 200
+  const retry = [...container.querySelectorAll('button')].find(button => button.textContent === 'Muat pilihan resource')!
+  await act(async () => retry.click()); await settle()
+  expect(container.textContent).not.toContain('Pilihan resource belum tersedia')
+  expect(container.querySelector<HTMLInputElement>('[name="quantity"]')?.disabled).toBe(false)
+  await input('[name="quantity"]', '2'); await submit()
+  expect(claims()).toHaveLength(1)
+  expect(claims()[0].body).toEqual({ quantity: '2' })
 })

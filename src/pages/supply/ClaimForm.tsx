@@ -106,6 +106,8 @@ export default function ClaimForm() {
   const form = <section className="flex min-w-0 flex-col gap-4 rounded-md border border-border bg-surface p-4 nav:p-6" data-node-id="79:1629">
     <h2 className="m-0 text-xl font-bold leading-normal">Berapa yang kamu butuhkan?</h2>
     {statusNotice}
+    {reference.status === 'loading' && <p role="status">Memuat pilihan satuan…</p>}
+    {reference.status === 'error' && <PageState error title="Pilihan resource belum tersedia" action={<Button onClick={reference.retry}>Muat pilihan resource</Button>}>Pilihan satuan perlu dimuat sebelum claim dapat diajukan.</PageState>}
     {failure && <Alert tone="danger" title="Claim belum diajukan"><p>{failure}</p>{conflict && <Link to={detailTo} target="_blank" rel="noopener noreferrer">Periksa detail terbaru</Link>}</Alert>}
     <form className="flex flex-col gap-4" noValidate onSubmit={submit} aria-busy={submitting}>
       <fieldset disabled={!canSubmit || submitting} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
