@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
 import Alert from '../../components/ui/Alert.tsx'
@@ -42,6 +42,7 @@ export default function BrowseSupply({ mine = false }: { mine?: boolean }) {
   const [searchError, setSearchError] = useState<string>()
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<{ key: string; data?: ListingPage; error?: unknown }>({ key: '' })
+  const recoverPageAfterWrite = useRef(false)
   // Build an explicit allowlist; owner history always uses scope=mine.
   const query = new URLSearchParams({ page: String(page), page_size: '20', ordering })
   if (mine) query.set('scope', 'mine')
@@ -57,15 +58,18 @@ export default function BrowseSupply({ mine = false }: { mine?: boolean }) {
     const controller = new AbortController()
     if ((q && (q.trim().length < 2 || q.length > 100)) || area.length > 100) return () => controller.abort()
     listingsApi.list(Object.fromEntries(new URLSearchParams(key)), { signal: controller.signal }).then(data => {
-      if (!controller.signal.aborted) setResult({ key, data })
+      if (!controller.signal.aborted) { recoverPageAfterWrite.current = false; setResult({ key, data }) }
     }).catch(error => {
       if (!controller.signal.aborted) {
         if (mine && error instanceof ApiError && error.status === 401) clearSession()
-        setResult({ key, error })
+        const recover = mine && recoverPageAfterWrite.current && page > 1 && error instanceof ApiError && error.status === 404 && error.errors.some(item => item.code === 'page_not_found')
+        recoverPageAfterWrite.current = false
+        if (recover) setParams(previous => { const next = new URLSearchParams(previous); next.delete('page'); return next }, { replace: true })
+        else setResult({ key, error })
       }
     })
     return () => controller.abort()
-  }, [key, attempt, q, area, mine, clearSession, location.key])
+  }, [key, attempt, q, area, mine, clearSession, location.key, page, setParams])
 
   function update(values: Record<string, string>, reset = false) {
     const next = reset ? new URLSearchParams() : new URLSearchParams(params)
@@ -93,7 +97,7 @@ export default function BrowseSupply({ mine = false }: { mine?: boolean }) {
     setNotice(message)
     // A confirmed write invalidates the old status/counters while the server
     // reloads history. Keep the current dialog/draft on a failed write.
-    if (message) setResult({ key })
+    if (message) { recoverPageAfterWrite.current = true; setResult({ key }) }
     setAttempt(value => value + 1)
   }
   const filterControls = <div className="flex flex-col gap-3">

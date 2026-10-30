@@ -493,3 +493,27 @@ it('renders owner-list failures and recovers without confusing them with empty h
   await click('Coba lagi'); await settle()
   expect(container.textContent).toContain('Belum ada supply pada pilihan ini')
 })
+
+it('returns to page one after closing the final result on a filtered last page', async () => {
+  await mount('/my/supply?status=AVAILABLE&page=2&area=Depok', 1)
+  await click('Tutup supply'); await input('[name="close_reason"]', 'Sudah selesai dibagikan')
+  listResponse = async url => url.searchParams.get('page') === '2'
+    ? failed(404, 'page_not_found')
+    : ok({ count: 20, next: null, previous: null, results: [{ ...listing, id: 8 }] })
+  await click('Ya, tutup supply'); await settle()
+  expect(container.textContent).not.toContain('Supply belum dapat dimuat')
+  expect(router.state.location.search).not.toContain('page=2')
+  const reloaded = requests.filter(request => request.url.pathname.endsWith('listings/')).at(-1)!
+  expect(reloaded.url.searchParams.get('page')).toBe('1')
+  expect(reloaded.url.searchParams.get('scope')).toBe('mine')
+  expect(reloaded.url.searchParams.get('status')).toBe('AVAILABLE')
+  expect(reloaded.url.searchParams.get('area')).toBe('Depok')
+  expect(container.textContent).toContain('Supply berhasil ditutup')
+})
+it('does not hide an unrelated page-not-found error without a confirmed write', async () => {
+  await mount('/my/supply', 1)
+  listResponse = async () => failed(404, 'page_not_found')
+  await act(async () => router.navigate('/my/supply?page=9')); await settle()
+  expect(container.textContent).toContain('Supply belum dapat dimuat')
+  expect(router.state.location.search).toContain('page=9')
+})
