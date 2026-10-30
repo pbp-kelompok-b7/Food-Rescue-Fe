@@ -111,8 +111,8 @@
   .request-browse-heading .request-heading { @apply mt-14 mb-2 nav:mt-3 nav:text-primary; }
   .request-search { @apply grid items-end gap-3 nav:grid-cols-[minmax(0,1.8fr)_minmax(0,1.08fr)_120px_180px]; }
   .request-search-query { @apply order-2 mt-3 nav:order-1 nav:mt-0; }
-  .request-search-area { @apply hidden nav:order-2 nav:block; }
-  .request-search-submit { @apply order-3 mt-3 nav:mt-0; }
+  .request-search-area { @apply order-3 nav:order-2; }
+  .request-search-submit { @apply order-4 mt-3 nav:order-3 nav:mt-0; }
   .request-search .request-create { @apply order-1 w-full bg-brand text-on-brand shadow-none hover:not-disabled:bg-brand-hover active:not-disabled:bg-brand-active active:not-disabled:opacity-100 nav:order-4; }
   .request-filter-summary { @apply -mt-3 flex flex-col gap-3 text-xs text-primary; }
   .request-results-heading { @apply mb-4 flex flex-col gap-4; }
