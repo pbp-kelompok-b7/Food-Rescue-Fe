@@ -128,6 +128,12 @@ Kerjakan perubahan di branch fitur, buat pull request ke `main`, dan minta minim
 
 Ruleset `main` seharusnya mewajibkan PR, satu approval, dan status check `Lint and build`; blokir penghapusan dan force push. Jangan aktifkan `Restrict updates` tanpa bypass yang sesuai karena dapat menghalangi merge PR. Required status check dapat dipilih setelah workflow tersedia dan pernah berjalan di GitHub.
 
+## AI Disclosure
+
+Dalam pengerjaan frontend ini, tim menggunakan bantuan AI sebagai alat pendukung, bukan pengganti keputusan teknis tim. AI dimanfaatkan untuk mempercepat penyusunan kerangka komponen dan halaman React, membantu menata struktur routing dan service `/api/v1`, menyusun validasi form sisi klien serta pemetaan pesan error sesuai API contract, dan merapikan dokumentasi seperti README ini. AI juga digunakan untuk brainstorming pola UI, meninjau konsistensi penggunaan token design system, dan membantu menelusuri bug saat integrasi lokal frontend dengan backend.
+
+Seluruh keluaran AI ditinjau, diuji, dan disesuaikan oleh tim sebelum dimasukkan ke repository. Keputusan akhir terkait desain, arsitektur, scope fitur, dan implementasi tetap berada pada anggota tim. Kode yang dihasilkan diverifikasi melalui lint, typecheck, test, dan build sebelum dibuka sebagai pull request.
+
 
 ## Integrasi API Revisi 2
 
