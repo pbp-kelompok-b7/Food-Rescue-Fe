@@ -42,6 +42,16 @@ export const listingsApi = {
   ...resourceApi('listings'),
   list: (params: QueryParams = {}, options: ApiRequestOptions = {}) => apiRequest<ListingPage>(`listings/?${new URLSearchParams(params)}`, options),
   detail: (id: ResourceId, options: ApiRequestOptions = {}) => apiRequest<Listing>(listingPath(id), options),
+  async close(id: ResourceId, body: { reason: string }) {
+    const path = listingPath(id)
+    await bootstrapCsrf()
+    return apiRequest<Listing>(`${path}close/`, { method: 'POST', body })
+  },
+  async remove(id: ResourceId) {
+    const path = listingPath(id)
+    await bootstrapCsrf()
+    return apiRequest<void>(path, { method: 'DELETE' })
+  },
   async create(body: ListingWrite) {
     await bootstrapCsrf()
     return apiRequest<Listing>('listings/', { method: 'POST', body })

@@ -28,6 +28,7 @@ export function supplyError(error: unknown) {
     if (error.status === 403) return error.errors.some(item => item.code === 'csrf_failed') ? 'Verifikasi keamanan gagal. Coba kirim kembali.' : 'Kamu tidak memiliki izin untuk melakukan tindakan ini.'
     if (error.status === 404) return 'Supply tidak ditemukan atau tidak dapat diakses.'
     if (error.status === 409) {
+      if (error.errors.some(item => item.code === 'invalid_transition')) return 'Supply sudah ditutup, kedaluwarsa, atau selesai. Periksa status terbaru sebelum mencoba lagi.'
       if (error.errors.some(item => item.code === 'quantity_floor')) return 'Jumlah tidak boleh kurang dari resource yang sudah dialokasikan atau diselesaikan.'
       if (error.errors.some(item => item.code === 'unit_locked')) return 'Jenis, kategori, dan satuan tidak dapat diubah setelah ada reservasi.'
       return 'Supply sudah berubah. Periksa data terbaru sebelum menyimpan kembali.'
