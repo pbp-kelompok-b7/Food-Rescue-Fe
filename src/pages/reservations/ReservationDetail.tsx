@@ -21,7 +21,7 @@ const headings: Record<string, string> = {
 }
 const pickupLabels: Record<string, string> = { SCHEDULED: 'Dijadwalkan', COMPLETED: 'Selesai diterima', NO_SHOW: 'Tidak hadir', CANCELLED: 'Dibatalkan' }
 
-interface PickupShape { status: string; scheduled_at?: string; location?: { area?: string }; instructions?: string | null }
+interface PickupShape { id: number | string; status: string; scheduled_at?: string; location?: { area?: string }; instructions?: string | null }
 type DialogKind = 'reject' | 'cancel' | null
 
 export default function ReservationDetail() {
@@ -156,6 +156,7 @@ export default function ReservationDetail() {
         ? <a className="fr-button w-full" href={`https://wa.me/${contact.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer">Hubungi {isReceiver ? 'provider' : 'receiver'} di WhatsApp</a>
         : <div className="flex flex-col gap-1"><p className="m-0 text-sm text-muted">Kontak {isReceiver ? 'provider' : 'receiver'}</p><p className="m-0 font-semibold">Belum tersedia</p></div>}
       <div className="flex flex-col gap-1"><p className="m-0 text-sm text-muted">WhatsApp kamu</p><p className="m-0 font-semibold">{auth.status === 'authenticated' && auth.user?.whatsapp_number ? 'Nomor sudah terisi' : 'Belum terisi — lengkapi di profil'}</p></div>
+      {role === 'provider' && !pickup && <Link className="fr-button w-full" to={`/reservations/${reservation.id}/pickup`}>Jadwalkan pickup</Link>}
       <p className="m-0 text-sm text-muted">Jumlah dan detail kesepakatan sudah terkunci.</p>
       {reservation.accepted_at && <p className="m-0 text-sm text-muted">Diterima {deadlineText(reservation.accepted_at)}.</p>}
     </>
@@ -186,7 +187,7 @@ export default function ReservationDetail() {
         {canCancel && <Button className="w-full" variant="ghost" disabled={busy !== null} onClick={() => { setReason(''); setReasonError(undefined); setActionFailure(undefined); setDialog('cancel') }}>Batalkan reservasi</Button>}
       </section>
     </div>
-    {pickup && <PickupStatus status={pickup.status} label={pickupLabels[pickup.status] || pickup.status} scheduledAt={pickup.scheduled_at ? deadlineText(pickup.scheduled_at) : undefined} location={pickup.location?.area} instructions={pickup.instructions || undefined}>
+    {pickup && <PickupStatus status={pickup.status} label={pickupLabels[pickup.status] || pickup.status} scheduledAt={pickup.scheduled_at ? deadlineText(pickup.scheduled_at) : undefined} location={pickup.location?.area} instructions={pickup.instructions || undefined} actions={<Link className="fr-button" to={`/pickups/${encodeURIComponent(String(pickup.id))}`}>Buka detail pickup</Link>}>
       <p className="m-0 mt-2 text-xs text-muted">Pickup selesai mencatat penerimaan resource, bukan bukti pembayaran.</p>
     </PickupStatus>}
     {sourceTo && <Link className="self-start text-sm text-link" to={sourceTo}>Lihat sumber resource</Link>}

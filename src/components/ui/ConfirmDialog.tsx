@@ -13,17 +13,24 @@ export default function ConfirmDialog({
   cancelLabel = 'Batal',
   destructive = false,
   loading = false,
-}: { open: boolean; title: string; children: React.ReactNode; onCancel: () => void; onConfirm: () => void; confirmLabel?: string; cancelLabel?: string; destructive?: boolean; loading?: boolean }) {
+  stacked = false,
+  className = '',
+}: { open: boolean; title: string; children: React.ReactNode; onCancel: () => void; onConfirm: () => void; confirmLabel?: string; cancelLabel?: string; destructive?: boolean; loading?: boolean; stacked?: boolean; className?: string }) {
   const cancelRef = useRef<HTMLButtonElement>(null)
   return (
     <Dialog
       open={open}
       title={title}
+      className={className}
       onClose={loading ? undefined : onCancel}
       initialFocusRef={cancelRef}
     >
       <div className="text-muted">{children}</div>
-      <div className="mt-4 flex gap-3 [&>button]:h-11 [&>button]:flex-1 [&>button]:py-0">
+      <div
+        className={`mt-4 flex gap-3 [&>button]:h-11 [&>button]:py-0 ${
+          stacked ? 'flex-col [&>button]:w-full' : '[&>button]:flex-1'
+        }`}
+      >
         <Button
           ref={cancelRef}
           variant="secondary"
