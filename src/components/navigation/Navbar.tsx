@@ -98,8 +98,9 @@ export default function Navbar({
                 )}
               </div>
             </div>
-          ) : sessionStatus === 'anonymous' ? (
+          ) : sessionStatus === 'anonymous' || sessionStatus === 'error' ? (
             <div className="hidden items-center gap-2 nav:flex">
+              {sessionStatus === 'error' && <Button variant="ghost" onClick={onRetrySession}>Periksa sesi lagi</Button>}
               <Link className="inline-flex min-h-11 min-w-17 items-center justify-center px-3 py-2.5 text-sm leading-5 font-semibold no-underline" to="/login">
                 Masuk
               </Link>
@@ -134,7 +135,7 @@ export default function Navbar({
             {link.label}
           </NavLink>
         ))}
-        {!user && sessionStatus === 'anonymous' && (
+        {!user && (sessionStatus === 'anonymous' || sessionStatus === 'error') && (
           <>
             <Link to="/login" className={navLinkClass} onClick={close}>
               Masuk

@@ -66,6 +66,18 @@ describe('shared navigation and access', () => {
     expect(container.textContent).not.toContain('Profil privat')
   })
 
+  it('keeps login reachable from desktop, mobile and footer when session lookup fails', async () => {
+    await render({ status: 'error', user: null, error: new TypeError('Failed to fetch') })
+    expect(container.querySelector('header a[href="/login"]')).not.toBeNull()
+    expect(container.querySelector('footer a[href="/login"]')).not.toBeNull()
+    const menu = container.querySelector<HTMLButtonElement>('button[aria-label="Buka navigasi"]')!
+    await act(async () => menu.click())
+    expect(container.querySelector('nav[aria-label="Navigasi mobile"] a[href="/login"]')).not.toBeNull()
+    const login = container.querySelector<HTMLAnchorElement>('nav[aria-label="Navigasi mobile"] a[href="/login"]')!
+    await act(async () => login.click())
+    expect(router.state.location.pathname).toBe('/login')
+  })
+
   it('waits for session resolution without showing guest login or protected content', async () => {
     await render({ status: 'loading', user: null, error: null }, '/admin')
     expect(container.textContent).toContain('Memeriksa sesi')
