@@ -1,3 +1,4 @@
+import AreaAutocomplete from '../../components/location/AreaAutocomplete.tsx'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
@@ -131,7 +132,7 @@ export default function BrowseRequests({ mine = false }: { mine?: boolean }) {
     {notice && <Alert tone="success" title={notice} />}
     <form key={`${q}:${area}`} role="search" onSubmit={search} className="request-search">
       <div className="request-search-query"><FormField label="Cari kebutuhan" error={searchError}><Input name="q" defaultValue={q} maxLength={100} placeholder="Nama atau jenis kebutuhan" /></FormField></div>
-      <div className="request-search-area"><FormField label="Area"><Input name="area" defaultValue={area} maxLength={100} placeholder="Kota atau area" /></FormField></div><Button className="request-search-submit" type="submit">Cari request</Button><Link className="fr-button request-create" to="/requests/new">+ Buat request</Link>
+      <div className="request-search-area"><AreaAutocomplete initial={area} placeholder="Kota atau area" /></div><Button className="request-search-submit" type="submit">Cari request</Button><Link className="fr-button request-create" to="/requests/new">+ Buat request</Link>
     </form>
     <Button variant="secondary" className="-mt-3 nav:hidden" onClick={() => { setFilters(active); setSheet(true) }}>Filter</Button>
     <FilterSheet title="Filter kebutuhan" open={sheet} onClose={() => setSheet(false)}>{sheet && filterControls}</FilterSheet>

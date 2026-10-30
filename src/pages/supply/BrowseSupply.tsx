@@ -1,3 +1,4 @@
+import AreaAutocomplete from '../../components/location/AreaAutocomplete.tsx'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
@@ -123,7 +124,7 @@ export default function BrowseSupply({ mine = false }: { mine?: boolean }) {
     {mine && <FormField label="Status supply"><Select aria-label="Status supply" value={status} placeholder="Semua status" options={['AVAILABLE', 'RESERVED', 'COMPLETED', 'CLOSED', 'EXPIRED'].map(value => ({ value, label: supplyLabel(value) }))} onChange={event => update({ status: event.target.value })} /></FormField>}
     <form key={`${q}:${area}`} role="search" onSubmit={search} className="grid items-end gap-3 nav:grid-cols-[minmax(0,500px)_minmax(0,300px)_120px]">
       <FormField label="Cari resource" error={searchError}><Input name="q" defaultValue={q} maxLength={100} placeholder="Nama atau jenis resource" /></FormField>
-      <FormField label="Area"><Input name="area" defaultValue={area} maxLength={100} placeholder="Semua area" /></FormField>
+      <AreaAutocomplete initial={area} placeholder="Ketik kota atau area" />
       <Button type="submit" aria-label="Cari resource">Cari</Button>
     </form>
     <Button variant="secondary" className="nav:hidden" onClick={() => { setFilters(active); setSheet(true) }}>Filter</Button>

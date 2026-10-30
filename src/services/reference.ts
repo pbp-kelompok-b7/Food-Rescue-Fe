@@ -51,6 +51,16 @@ export async function searchLocations({ q, area, limit = 5 }: LocationSearchPara
   const params = new URLSearchParams({ q: query, limit: String(limit) })
   if (region) params.set('area', region)
   const data = await apiRequest<{ results: unknown[] }>(`locations/search/?${params}`, options)
+  return locationResults(data)
+}
+
+export async function suggestLocations(q: string, options: ApiRequestOptions = {}) {
+  const query = q.trim()
+  if (query.length < 2 || query.length > 200) throw new RangeError('Parameter pencarian lokasi tidak valid.')
+  return locationResults(await apiRequest<{ results: unknown[] }>(`locations/suggestions/?${new URLSearchParams({ q: query, limit: '5' })}`, options))
+}
+
+function locationResults(data: unknown): { results: LocationResult[] } {
   if (!record(data)) throw new Error('Respons lokasi tidak valid.')
   return { results: list(data.results).map(value => {
     if (!record(value) || typeof value.label !== 'string' || !value.label.trim() || typeof value.area !== 'string' || !value.area.trim() || typeof value.attribution !== 'string' || !value.attribution.trim() || typeof value.latitude !== 'number' || !Number.isFinite(value.latitude) || Math.abs(value.latitude) > 90 || typeof value.longitude !== 'number' || !Number.isFinite(value.longitude) || Math.abs(value.longitude) > 180) throw new Error('Respons lokasi tidak valid.')
