@@ -1,3 +1,4 @@
+import { photoBody } from './photos.ts'
 import { resourceApi } from './resources.ts'
 import { apiRequest, type ApiRequestOptions } from './api.ts'
 import type { ResourceLocation } from './reference.ts'
@@ -17,6 +18,7 @@ export interface RequestWrite {
 }
 
 export interface ResourceRequest {
+  image?: string | null
   id: number
   created_at: string
   updated_at: string
@@ -48,14 +50,14 @@ export const requestsApi = {
   detail: (id: ResourceId, options: ApiRequestOptions = {}) => {
     return apiRequest<ResourceRequest>(requestPath(id), options)
   },
-  create: async (body: RequestWrite) => {
+  create: async (body: RequestWrite, image?: File | null) => {
     await bootstrapCsrf()
-    return apiRequest<ResourceRequest>('requests/', { method: 'POST', body })
+    return apiRequest<ResourceRequest>('requests/', { method: 'POST', body: photoBody(body, image) })
   },
-  update: async (id: ResourceId, body: Partial<RequestWrite>) => {
+  update: async (id: ResourceId, body: Partial<RequestWrite>, image?: File | null) => {
     const path = requestPath(id)
     await bootstrapCsrf()
-    return apiRequest<ResourceRequest>(path, { method: 'PATCH', body })
+    return apiRequest<ResourceRequest>(path, { method: 'PATCH', body: photoBody(body, image) })
   },
   close: async (id: ResourceId, reason: string) => {
     const path = requestPath(id)

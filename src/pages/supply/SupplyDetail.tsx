@@ -1,3 +1,5 @@
+import LocationMap from '../../components/location/LocationMap.tsx'
+import { photoUrl } from '../../services/photos.ts'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
@@ -38,7 +40,8 @@ export default function SupplyDetail() {
     <header className="mb-6 flex flex-col gap-3"><p className="supply-caption">SUPPLY / DETAIL</p><h1 className="supply-heading">{listing.title}</h1><div className="flex flex-wrap gap-2"><Badge tone="success">{supplyLabel(listing.mode)}</Badge><Badge status={expired ? 'EXPIRED' : listing.status}>{supplyLabel(expired ? 'EXPIRED' : listing.status)}</Badge>{listing.archived_at && <Badge>Diarsipkan</Badge>}</div></header>
     <div className="grid items-start gap-8 nav:grid-cols-[minmax(0,1.48fr)_minmax(0,1fr)] nav:gap-11">
       <div className="flex min-w-0 flex-col gap-6 nav:gap-8">
-        <div className="flex min-h-65 flex-col rounded-xl bg-supply-container p-6 nav:min-h-97.5"><h2 className="m-0 font-brand text-xl font-semibold text-primary nav:text-[28px]">{listing.title}</h2><div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center"><span className="flex size-14 items-center justify-center rounded-full bg-surface nav:size-18"><img src="/assets/figma/supply-image.svg" className="size-8" alt="" /></span><div><p className="m-0 text-lg font-semibold">Belum ada foto</p><p className="mt-1 mb-0 text-sm text-muted">Pemilik belum menambahkan foto untuk resource ini.</p></div></div></div>
+        {listing.image ? <img src={photoUrl(listing.image)} alt="Foto resource" className="max-h-110 w-full rounded-xl object-contain bg-supply-container" /> : <div className="flex min-h-65 flex-col rounded-xl bg-supply-container p-6 nav:min-h-97.5"><h2 className="m-0 font-brand text-xl font-semibold text-primary nav:text-[28px]">{listing.title}</h2><div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center"><span className="flex size-14 items-center justify-center rounded-full bg-surface nav:size-18"><img src="/assets/figma/supply-image.svg" className="size-8" alt="" /></span><div><p className="m-0 text-lg font-semibold">Belum ada foto</p><p className="mt-1 mb-0 text-sm text-muted">Pemilik belum menambahkan foto untuk resource ini.</p></div></div></div>}
+        <LocationMap location={listing.location} />
         <div><p className="mb-1 text-[22px] font-semibold">{quantityText(listing.quantity_available)} {listing.unit} tersedia</p><p className="m-0 text-sm text-muted">{listing.mode === 'SELL' ? `${priceText(listing.unit_price)} / ${listing.unit}` : 'Siap dibagikan'}</p></div>
         <div className="nav:hidden">{claimAction}</div>
         <div className="rounded-md bg-supply-container p-4 nav:hidden"><p className="m-0 text-sm">{listing.condition}</p></div>

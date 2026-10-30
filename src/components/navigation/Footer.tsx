@@ -22,7 +22,7 @@ const defaultGroups = [
 
 export default function Footer({
   groups = defaultGroups,
-  attribution = 'Pencarian lokasi: OpenStreetMap / Nominatim',
+  attribution = 'Data lokasi: © OpenStreetMap contributors',
   landing = false,
   compact = false,
 }: {

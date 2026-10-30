@@ -1,3 +1,4 @@
+import PhotoInput from '../../components/resources/PhotoInput.tsx'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
@@ -23,6 +24,7 @@ export default function RequestForm({ initial }: { initial?: ResourceRequest }) 
   const [failure, setFailure] = useState<string>()
   const [conflict, setConflict] = useState<string>()
   const [submitting, setSubmitting] = useState(false)
+  const [image, setImage] = useState<File | null>()
   const [pricePreference, setPricePreference] = useState<'donate' | 'capped' | 'unlimited'>(() => initial?.donate_only ? 'donate' : initial?.max_unit_price != null ? 'capped' : 'unlimited')
   const pending = useRef(false)
   const mounted = useRef(true)
@@ -40,10 +42,10 @@ export default function RequestForm({ initial }: { initial?: ResourceRequest }) 
     setErrors(nextErrors); setFailure(undefined); setConflict(undefined)
     if (Object.keys(nextErrors).length) { setFailure('Periksa informasi yang ditandai sebelum menyimpan.'); focusError(); return }
     const body = initial ? requestChanges(value, initial) : requestPayload(value)
-    if (!Object.keys(body).length) { setFailure('Belum ada perubahan untuk disimpan.'); return }
+    if (!Object.keys(body).length && image === undefined) { setFailure('Belum ada perubahan untuk disimpan.'); return }
     pending.current = true; setSubmitting(true)
     try {
-      const saved = initial ? await requestsApi.update(initial.id, body) : await requestsApi.create(requestPayload(value))
+      const saved = initial ? await requestsApi.update(initial.id, body, image) : await requestsApi.create(requestPayload(value), image)
       if (mounted.current) navigate(`/requests/${saved.id}`, { replace: true, state: { requestSaved: initial ? 'updated' : 'created' } })
     } catch (error) {
       if (!mounted.current) return
@@ -56,7 +58,7 @@ export default function RequestForm({ initial }: { initial?: ResourceRequest }) 
       if (error instanceof ApiError) {
         if (error.status === 409) setConflict(error.errors.some(item => item.code === 'unit_locked') ? 'unit_locked' : 'changed')
         const aliases: Record<string, string> = { quantity_needed: 'quantity', valid_until: 'deadline', 'location.label': 'location', 'location.area': 'location', 'location.latitude': 'location', 'location.longitude': 'location' }
-        const known = new Set(['resource_type', 'category', 'intended_use', 'quantity', 'unit', 'deadline', 'location', 'donate_only', 'max_unit_price'])
+        const known = new Set(['image', 'resource_type', 'category', 'intended_use', 'quantity', 'unit', 'deadline', 'location', 'donate_only', 'max_unit_price'])
         const mapped: Record<string, string> = {}
         if (error.status === 400 || error.status === 409) for (const item of error.errors) {
           const field = item.field && (aliases[item.field] || item.field)
@@ -89,6 +91,7 @@ export default function RequestForm({ initial }: { initial?: ResourceRequest }) 
           <div hidden={pricePreference !== 'capped'}><FormField label="Batas harga per satuan (Rp)" hint={`Kosongkan jika tidak menetapkan batas harga${value.fields.unit ? ` per ${value.fields.unit}` : ''}.`} error={errors.max_unit_price}><Input name="max_unit_price" inputMode="decimal" disabled={value.donate_only} value={value.max_unit_price} onChange={event => patch({ max_unit_price: event.target.value })} placeholder="Tanpa batas harga" /></FormField></div>
         </section>
         <section className="request-form-section" aria-labelledby="request-location"><h2 id="request-location">Area &amp; batas waktu</h2><LocationSearch compact value={value.location} onChange={next => patch({ location: next })} disabled={submitting} error={errors.location} /><FormField label="Terima tawaran sampai" hint="Waktu Indonesia Barat (Asia/Jakarta)." error={errors.deadline} required><Input name="valid_until" type="datetime-local" value={value.fields.deadline} onChange={event => patch({ fields: { ...value.fields, deadline: event.target.value } })} /></FormField></section>
+        <PhotoInput value={image} existing={initial?.image} onChange={setImage} error={errors.image} />
         <div className="request-form-buttons"><Button type="submit" loading={submitting}>{submitting ? 'Menyimpan request…' : initial ? 'Simpan perubahan' : 'Terbitkan request'}</Button><Link className="fr-button" aria-disabled={submitting || undefined} tabIndex={submitting ? -1 : undefined} onClick={event => { if (pending.current) event.preventDefault() }} to={initial ? `/requests/${initial.id}` : '/requests'}>Batal</Link></div>
         <p className="m-0 text-xs text-muted">Request dapat diperbarui setelah diterbitkan. Kesepakatan yang sudah diterima tetap mengikuti deadline resource masing-masing.</p>
       </fieldset>

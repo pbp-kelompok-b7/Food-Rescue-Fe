@@ -1,3 +1,4 @@
+import { photoBody, photoError } from './photos.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { apiRequest, ApiError, setCsrfToken } from './api.ts'
@@ -221,4 +222,18 @@ test('Google sign-in sends only the credential and rotates CSRF before the next 
   assert.equal(calls[1].token, 'guest-token')
   assert.equal(calls[3].token, 'rotated-google-token')
   assert.ok(calls.every(call => call.credentials === 'include'))
+})
+
+
+test('photo writes preserve JSON types in multipart and support explicit removal', () => {
+  const image = new File(['pixels'], 'photo.png', { type: 'image/png' })
+  const body = { donate_only: false, location: { latitude: -6.36, longitude: 106.82 }, quantity_needed: '2.000' }
+  const multipart = photoBody(body, image)
+  assert.ok(multipart instanceof FormData)
+  assert.deepEqual(JSON.parse(String(multipart.get('payload'))), body)
+  assert.equal(multipart.get('image'), image)
+  assert.deepEqual(photoBody(body, null), { ...body, image: null })
+  assert.equal(photoBody(body), body)
+  assert.equal(photoError(image), undefined)
+  assert.ok(photoError(new File(['<svg/>'], 'unsafe.svg', { type: 'image/svg+xml' })))
 })

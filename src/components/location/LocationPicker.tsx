@@ -4,7 +4,6 @@ import Alert from '../ui/Alert.tsx'
 import Button from '../ui/Button.tsx'
 import FormField from '../ui/FormField.tsx'
 import Input from '../ui/Input.tsx'
-import Icon from '../ui/Icon.tsx'
 
 export type { LocationResult } from '../../services/reference.ts'
 
@@ -24,10 +23,11 @@ export default function LocationPicker({ query, onQueryChange, onSearch, results
     }
   }
   return <section className="flex min-w-0 flex-col gap-4 rounded-md border border-border bg-surface p-5" aria-label="Pemilihan lokasi">
-    <FormField className="[&>p]:max-w-50" label="Cari alamat / lokasi" hint="Pilih hasil di bawah untuk mengonfirmasi lokasi." error={queryError}>
-      <Input className="text-muted focus:text-ink" type="search" value={query} maxLength={200} onChange={event => onQueryChange(event.target.value)} onKeyDown={enterSearch} aria-controls={`${id}-results`} trailing={<button type="button" className="flex size-11 items-center justify-center rounded-r-md text-primary disabled:text-muted" aria-label="Cari lokasi" aria-busy={loading || undefined} disabled={loading || searchDisabled} onClick={() => onSearch?.(query)}><Icon name={loading ? 'loading' : 'location'} className={loading ? 'animate-spin motion-reduce:animate-none' : ''} /></button>} />
+    <FormField label="Cari alamat / lokasi" hint="Ketik nama tempat atau alamat, cari, lalu pilih lokasi yang sesuai." error={queryError}>
+      <Input className="text-muted focus:text-ink" type="search" placeholder="Contoh: Kukus, Universitas Indonesia, Jalan Margonda" value={query} maxLength={200} onChange={event => onQueryChange(event.target.value)} onKeyDown={enterSearch} aria-controls={`${id}-results`} />
     </FormField>
     {onAreaChange && <FormField label="Area (opsional)" error={areaError}><Input value={area ?? ''} maxLength={100} onChange={event => onAreaChange(event.target.value)} onKeyDown={enterSearch} placeholder="Contoh: Depok" /></FormField>}
+    <Button className="self-start" onClick={() => onSearch?.(query)} disabled={loading || searchDisabled} aria-label="Cari lokasi">{loading ? 'Mencari lokasi…' : 'Cari lokasi'}</Button>
     {loading && <p role="status" className="m-0 text-sm text-muted">Mencari lokasi…</p>}
     {error && <Alert tone="danger" title="Pencarian lokasi tidak tersedia"><p>{error}</p>{onRetry && <Button variant="secondary" onClick={onRetry} disabled={loading || searchDisabled}>{retryLabel}</Button>}</Alert>}
     <div id={`${id}-results`} className="flex flex-col gap-3" aria-busy={loading}>
