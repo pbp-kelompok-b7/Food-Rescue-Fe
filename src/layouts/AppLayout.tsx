@@ -50,7 +50,7 @@ export default function AppLayout() {
     },
     ...(user
       ? [{ title: 'Akun', links: accountLinks }]
-      : auth.status === 'anonymous'
+      : auth.status === 'anonymous' || auth.status === 'error'
         ? [
             {
               title: 'Akun',
