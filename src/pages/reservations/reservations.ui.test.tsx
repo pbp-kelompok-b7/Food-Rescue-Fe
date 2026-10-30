@@ -290,3 +290,18 @@ it('shows a server field error and stays on edit after a 409 on revise', async (
   expect(router.state.location.pathname).toBe('/reservations/24/edit')
   expect(container.textContent).toContain('Jumlah ditolak server.')
 })
+
+it.each(['LISTING_CLAIM', 'REQUEST_OFFER'] as const)('links an accepted %s provider to pickup scheduling', async sourceType => {
+  await mount('/reservations/24', 2, 200, { source_type: sourceType, status: 'ACCEPTED', accepted_snapshot: terms })
+  expect(container.querySelector('a[href="/reservations/24/pickup"]')?.textContent).toBe('Jadwalkan pickup')
+  expect([...container.querySelectorAll('button')].some(button => button.textContent === 'Batalkan reservasi')).toBe(true)
+})
+it('does not offer provider scheduling to the receiver', async () => {
+  await mount('/reservations/24', 3, 200, { status: 'ACCEPTED', accepted_snapshot: terms })
+  expect(container.querySelector('a[href="/reservations/24/pickup"]')).toBeNull()
+})
+it.each(['SCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'])('links existing %s pickups without creating a second schedule', async status => {
+  await mount('/reservations/24', 2, 200, { status: 'ACCEPTED', accepted_snapshot: terms, pickup: { id: 12, status } })
+  expect(container.querySelector('a[href="/reservations/24/pickup"]')).toBeNull()
+  expect(container.querySelector('a[href="/pickups/12"]')?.textContent).toBe('Buka detail pickup')
+})
