@@ -1,5 +1,6 @@
 import { ApiError } from '../../services/api.ts'
 import type { PickupLocation } from '../../services/pickups.ts'
+import { toJakartaTimestamp } from '../../components/resources/resourceFields.ts'
 
 export interface AcceptedSnapshot {
   title?: string
@@ -43,13 +44,8 @@ export function pickupStatusLabel(status: string) {
 
 // datetime-local values are local wall time; the contract defines this form as Asia/Jakarta.
 export function jakartaInputToTimestamp(value: string): string | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value)
-  if (!match) return null
-  const [, year, month, day, hour, minute] = match
-  const utc = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour) - 7, Number(minute))
-  const date = new Date(utc)
-  if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day) || Number(hour) > 23 || Number(minute) > 59) return null
-  return `${value}:00+07:00`
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null
+  return toJakartaTimestamp(value)
 }
 
 export function jakartaNowInput(now = Date.now()): string {

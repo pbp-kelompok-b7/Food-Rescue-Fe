@@ -26,3 +26,11 @@ it('maps duplicate/contact conflicts to actionable explanations', () => {
   expect(pickupScheduleError(duplicate)).toContain('sudah dijadwalkan')
   expect(pickupScheduleError(contact)).toContain('Kedua pihak')
 })
+
+it.each(['2026-11-01T00:00', '2026-11-01T06:59', '2026-11-01T07:00', '2026-11-01T23:59', '2027-01-01T00:15', '2028-03-01T00:01', '2028-02-29T06:30'])('accepts a valid Jakarta schedule across UTC date boundaries: %s', value => {
+  expect(jakartaInputToTimestamp(value)).toBe(`${value}:00+07:00`)
+  expect(validatePickupSchedule(value, '', '2099-01-01T12:00:00+07:00', Date.parse('2026-10-30T12:00:00+07:00'))).toEqual({})
+})
+it.each(['2026-02-29T06:30', '2026-11-31T00:00', '2026-13-01T00:00', '2026-11-01T24:00', '2026-11-01T06:60'])('rejects invalid Jakarta calendar input: %s', value => {
+  expect(jakartaInputToTimestamp(value)).toBeNull()
+})
