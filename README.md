@@ -130,7 +130,9 @@ Ruleset `main` seharusnya mewajibkan PR, satu approval, dan status check `Lint a
 
 ## AI Disclosure
 
-Alat AI digunakan untuk membantu implementasi frontend, debugging, dan dokumentasi. Anggota tim telah meninjau dan menyesuaikan saran yang dihasilkan serta tetap bertanggung jawab atas kode yang dikumpulkan dan perilakunya.
+Dalam pengerjaan frontend ini, tim menggunakan bantuan AI sebagai alat pendukung, bukan pengganti keputusan teknis tim. AI dimanfaatkan untuk mempercepat penyusunan kerangka komponen dan halaman React, membantu menata struktur routing dan service `/api/v1`, menyusun validasi form sisi klien serta pemetaan pesan error sesuai API contract, dan merapikan dokumentasi seperti README ini. AI juga digunakan untuk brainstorming pola UI, meninjau konsistensi penggunaan token design system, dan membantu menelusuri bug saat integrasi lokal frontend dengan backend.
+
+Seluruh keluaran AI ditinjau, diuji, dan disesuaikan oleh tim sebelum dimasukkan ke repository. Keputusan akhir terkait desain, arsitektur, scope fitur, dan implementasi tetap berada pada anggota tim. Kode yang dihasilkan diverifikasi melalui lint, typecheck, test, dan build sebelum dibuka sebagai pull request.
 
 
 ## Integrasi API Revisi 2
