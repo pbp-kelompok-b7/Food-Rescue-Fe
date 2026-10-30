@@ -1,3 +1,4 @@
+import LocationMap from './LocationMap.tsx'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../../services/api.ts'
 import { searchLocations, type LocationResult } from '../../services/reference.ts'
@@ -9,6 +10,7 @@ function searchError(error: unknown) {
     if (error.status === 429) return 'Terlalu banyak pencarian. Tunggu sebentar sebelum mencoba lagi.'
     if (error.status === 502) return 'Penyedia pencarian lokasi sedang bermasalah. Coba lagi nanti.'
     if (error.status === 503 || error.status === 501) return 'Layanan pencarian lokasi belum tersedia. Coba lagi nanti.'
+    if (error.status === 500) return 'Server gagal memproses lokasi. Coba lagi atau hubungi pengelola.'
     if (error.status === 400) return 'Periksa alamat dan area pencarian.'
   }
   return 'Lokasi belum dapat dimuat. Periksa koneksi dan coba lagi.'
@@ -96,6 +98,7 @@ export default function LocationSearch({ value, onChange, limit = 5, disabled = 
     <div hidden={Boolean(compact && value)}><LocationPicker query={query} onQueryChange={next => edit(next, area)} area={area} onAreaChange={compact ? undefined : next => edit(query, next)} onSearch={() => void search()} results={results} selected={value} onSelect={onChange} loading={loading} searched={searched} error={error} queryError={queryError} areaError={areaError} attribution={attribution} searchDisabled={disabled || remaining > 0} onRetry={() => void search()} retryLabel={remaining > 0 ? `Coba lagi dalam ${remaining} detik` : 'Coba lagi'} /></div>
     {remaining > 0 && !error && <p role="status" className="m-0 text-sm text-muted">Pencarian dapat dicoba lagi dalam {remaining} detik.</p>}
     {value && <div className="flex min-w-0 flex-col gap-2 text-sm"><p role="status" className={`m-0 wrap-anywhere ${compact ? 'bg-supply-container p-4 text-primary' : ''}`}>{compact ? '✓ ' : 'Lokasi terpilih: '}<strong>{compact ? value.area : value.label}</strong>{compact ? <span className="sr-only"> · Lokasi terpilih: {value.label}</span> : ` · ${value.area}`}</p><Button className="self-start" variant="ghost" onClick={() => onChange(null)}>{compact ? 'Ubah lokasi' : 'Hapus pilihan lokasi'}</Button>{compact && value.attribution && <p className="m-0 text-xs text-muted wrap-anywhere">{value.attribution}</p>}</div>}
+    {value && <LocationMap location={value} />}
     {fieldError && <p role="alert" className="m-0 text-sm text-danger">{fieldError}</p>}
   </fieldset>
 }

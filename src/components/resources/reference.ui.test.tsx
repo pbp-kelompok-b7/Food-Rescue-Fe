@@ -72,6 +72,7 @@ it('searches manually, rejects short input, and selects a complete location with
   expect(container.querySelector('output')?.textContent).toContain('"latitude":-6.36')
   expect(container.textContent).toContain(location.attribution)
   expect(container.querySelector('[aria-pressed="true"]')?.textContent).toBe('Terpilih')
+  expect(container.querySelector('iframe[title="Peta lokasi terpilih"]')?.getAttribute('src')).toContain('marker=-6.36,106.82')
   expect(container.querySelectorAll('form')).toHaveLength(1)
   expect(submit).not.toHaveBeenCalled()
   await input('[type="search"]', 'Alamat lain')

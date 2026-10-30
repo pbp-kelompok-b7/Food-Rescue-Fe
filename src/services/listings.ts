@@ -1,3 +1,4 @@
+import { photoBody } from './photos.ts'
 import { apiRequest, type ApiRequestOptions } from './api.ts'
 import { bootstrapCsrf } from './auth.ts'
 import type { ResourceLocation } from './reference.ts'
@@ -22,6 +23,7 @@ export interface ListingWrite {
   available_until: string
 }
 export interface Listing extends ListingWrite {
+  image?: string | null
   id: number
   created_at: string
   updated_at: string
@@ -52,13 +54,13 @@ export const listingsApi = {
     await bootstrapCsrf()
     return apiRequest<void>(path, { method: 'DELETE' })
   },
-  async create(body: ListingWrite) {
+  async create(body: ListingWrite, image?: File | null) {
     await bootstrapCsrf()
-    return apiRequest<Listing>('listings/', { method: 'POST', body })
+    return apiRequest<Listing>('listings/', { method: 'POST', body: photoBody(body, image) })
   },
-  async update(id: ResourceId, body: Partial<ListingWrite>) {
+  async update(id: ResourceId, body: Partial<ListingWrite>, image?: File | null) {
     const path = listingPath(id)
     await bootstrapCsrf()
-    return apiRequest<Listing>(path, { method: 'PATCH', body })
+    return apiRequest<Listing>(path, { method: 'PATCH', body: photoBody(body, image) })
   },
 }

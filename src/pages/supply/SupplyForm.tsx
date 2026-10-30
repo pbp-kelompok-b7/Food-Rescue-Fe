@@ -1,3 +1,4 @@
+import PhotoInput from '../../components/resources/PhotoInput.tsx'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
@@ -36,6 +37,7 @@ export default function SupplyForm({ initial }: { initial?: Listing }) {
   const [failure, setFailure] = useState<string>()
   const [conflict, setConflict] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [image, setImage] = useState<File | null>()
   const [showNotes, setShowNotes] = useState(Boolean(initial?.storage_notes || initial?.allergen_notes || initial?.packaging_status))
   const pending = useRef(false)
   const mounted = useRef(true)
@@ -57,10 +59,10 @@ export default function SupplyForm({ initial }: { initial?: Listing }) {
       return
     }
     const body = initial ? listingChanges(value, initial) : supplyPayload(value)
-    if (!Object.keys(body).length) { setFailure('Belum ada perubahan untuk disimpan.'); return }
+    if (!Object.keys(body).length && image === undefined) { setFailure('Belum ada perubahan untuk disimpan.'); return }
     pending.current = true; setSubmitting(true)
     try {
-      const saved = initial ? await listingsApi.update(initial.id, body) : await listingsApi.create(supplyPayload(value))
+      const saved = initial ? await listingsApi.update(initial.id, body, image) : await listingsApi.create(supplyPayload(value), image)
       if (!mounted.current) return
       navigate(`/supply/${saved.id}`, { replace: true, state: { supplySaved: initial ? 'updated' : 'created' } })
     } catch (error) {
@@ -75,7 +77,7 @@ export default function SupplyForm({ initial }: { initial?: Listing }) {
         setConflict(error.status === 409)
         // Only known fields receive inline errors; React escapes plain text messages.
         const aliases: Record<string, string> = { quantity_total: 'quantity', available_until: 'deadline', 'location.label': 'location', 'location.area': 'location', 'location.latitude': 'location', 'location.longitude': 'location' }
-        const known = new Set(['title', 'description', 'condition', 'resource_type', 'category', 'unit', 'suitability', 'mode', 'unit_price', 'quantity', 'deadline', 'location', 'storage_notes', 'allergen_notes', 'packaging_status'])
+        const known = new Set(['image', 'title', 'description', 'condition', 'resource_type', 'category', 'unit', 'suitability', 'mode', 'unit_price', 'quantity', 'deadline', 'location', 'storage_notes', 'allergen_notes', 'packaging_status'])
         const mapped: Record<string, string> = {}
         if (error.status === 400 || error.status === 409) for (const item of error.errors) {
           const key = item.field && (aliases[item.field] || item.field)
@@ -112,6 +114,7 @@ export default function SupplyForm({ initial }: { initial?: Listing }) {
           <FormField label="Batas pickup / konsumsi" hint="Waktu Indonesia Barat (WIB)." error={errors.deadline}><Input name="available_until" type="datetime-local" value={fields.deadline} onChange={event => patchFields({ deadline: event.target.value })} /></FormField>
           <section aria-labelledby="supply-location"><h3 id="supply-location" className="mb-2 text-sm font-semibold">Lokasi pickup</h3><LocationSearch value={value.location} onChange={next => patch({ location: next })} disabled={submitting} error={errors.location} /></section>
         </section>
+        <PhotoInput value={image} existing={initial?.image} onChange={setImage} error={errors.image} />
         <section aria-labelledby="supply-additional"><div className="mb-4"><h2 id="supply-additional" className="mb-1 text-lg font-semibold">Detail tambahan (opsional)</h2><p className="m-0 text-sm text-muted">Kemasan, penyimpanan, dan alergen</p></div>
           <details open={showNotes} onToggle={event => setShowNotes(event.currentTarget.open)}><summary className="cursor-pointer rounded-md bg-supply-input p-3 text-sm font-semibold">{showNotes ? 'Sembunyikan detail' : 'Tambahkan detail'}</summary><div className="mt-4 flex flex-col gap-4">
           <FormField label="Kemasan" error={errors.packaging_status}><Input name="packaging_status" value={value.packaging_status} onChange={event => patch({ packaging_status: event.target.value })} maxLength={200} /></FormField>
